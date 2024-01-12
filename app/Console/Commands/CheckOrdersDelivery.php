@@ -36,13 +36,13 @@ class CheckOrdersDelivery extends Command
 
         try {
             //Log::info("start");
-            $days = 10;
+            $days = 30;
             $now = Carbon::now();
             $fromDate = $now->subDays($days)->format('Y-m-d H:i:s');
             $toDate = date('Y-m-d H:i:s');
-            $rs = Delivery::join('sales', 'deliveries.sale_id', 'sales.id')->join('couriers', 'deliveries.courier_id', 'couriers.id')->whereBetween('deliveries.created_at', [$fromDate, $toDate]);
+            $rs = Delivery::join('sales', 'deliveries.sale_id', 'sales.id')->join('couriers', 'deliveries.courier_id', 'couriers.id')->whereBetween('deliveries.created_at', [$fromDate, $toDate])->where('sales.paid_amount','!=',4);
             if ($rs->count() > 0) {
-                $rs->select('deliveries.sale_id','deliveries.tracking_no','deliveries.status', 'deliveries.courier_id', 'couriers.name as courier_name', 'sales.woocommerce_order_id','sales.reference_no');
+                $rs->select('deliveries.sale_id','deliveries.tracking_no','deliveries.status', 'deliveries.courier_id', 'couriers.name as courier_name', 'sales.woocommerce_order_id','sales.reference_no')->orderBy('deliveries.created_at',"ASC");
                 $orders = $rs->get()->toArray();
                 $commonObj = new CommonClass();
                 foreach ($orders as $order) {

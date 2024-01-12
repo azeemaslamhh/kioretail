@@ -4571,9 +4571,16 @@ class ReportController extends Controller
     }
     public function getCourierReport(Request $request)
     {
-        $courier_id = $request->courier_id;
+        $courier_id = ($request->courier_id!="")? $request->courier_id:"";
+       
+        $start_date = ($request->start_date!="") ? date("Y-m-d", strtotime($request->start_date)):"";
+        $end_date = ($request->end_date!="")? date("Y-m-d", strtotime($request->end_date)):"";
+       
+        $courier_status = ($request->courier_status!="") ? $request->courier_status:"";
+
         $objCommonClass = new CommonClass();
-        $reportData = $objCommonClass->getCourierReport($courier_id);
+        
+        $reportData = $objCommonClass->getCourierReport($courier_id, $start_date , $end_date , $courier_status);
         echo json_encode(array(
             'status' =>'success',
             'data'=>$reportData

@@ -20,8 +20,8 @@
                     <div class="form-group">
                         <label><strong>{{trans('file.Date')}}</strong></label>
                         <input type="text" class="daterangepicker-field form-control" value="{{$starting_date}} To {{$ending_date}}" required />
-                        <input type="hidden" name="starting_date" value="{{$starting_date}}" />
-                        <input type="hidden" name="ending_date" value="{{$ending_date}}" />
+                        <input type="hidden" name="starting_date" id="starting_date" value="{{$starting_date}}" />
+                        <input type="hidden" name="ending_date" id="ending_date" value="{{$ending_date}}" />
                     </div>
                 </div>
                 <div class="col-md-3 @if(\Auth::user()->role_id > 2){{'d-none'}}@endif">
@@ -139,6 +139,18 @@
                 </tbody>
             </table>
             <div id="sale-footer" class="modal-body"></div>
+        </div>
+    </div>
+</div>
+
+
+<div id="payment-details" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" class="modal fade text-left">
+    <div role="document" class="modal-dialog">
+        <div class="modal-content">
+            
+            <div id="payment-content" class="modal-body">
+
+            </div>            
         </div>
     </div>
 </div>
@@ -529,6 +541,7 @@
         var sale = $(this).attr('data');
         saleDetails(sale);
     });
+    
 
     $(document).on("click", "#print-btn", function() {
         var divContents = document.getElementById("sale-details").innerHTML;
@@ -850,8 +863,8 @@
             },
             "aLengthMenu": [[10,50, 100, 500], [10,50, 100, 500]],
             "fnServerParams": function (aoData) {                
-                aoData.push({"name": "starting_date", "value": starting_date});
-                aoData.push({"name": "ending_date", "value": ending_date});
+                aoData.push({"name": "starting_date", "value": $("#starting_date").val()});
+                aoData.push({"name": "ending_date", "value": $("#ending_date").val()});
                 aoData.push({"name": "warehouse_id", "value":$("#warehouse_id").val()});
                 aoData.push({"name": "sale_status", "value": $("#sale-status").val()});
                 aoData.push({"name": "payment_status", "value": $("#payment-status").val()});
@@ -859,7 +872,8 @@
         });
         objTable = table;
         $(document).on('click','#filter-btn',function(){
-            try {                
+            try {  
+                ///console.log("pak");              
                 objTable.draw();
                 //this.api();
                 //objTable.ajax.reload();
@@ -875,6 +889,44 @@
                 }
             }
         });    
+        $(document).on("click", ".getLeopardReport", function(){
+            var wo_id = $(this).attr('data');
+            var token = "{{ csrf_token() }}";
+            $.ajax({
+                type:'POST',
+                url:"{{ route('getLeopardsCourierPaymentStatus') }}",
+                data:{
+                    wo_id: wo_id
+                },
+                dataType:'json',
+                success:function(data){
+                    $('#payment-details').modal('show');
+                    var html ='<pre>'+JSON.stringify(data.data, null, 2);
+                        html +='</pre>';
+                        $("#payment-content").html(html);
+                    objTable.draw(); 
+                }
+            });
+        });
+        $(document).on("click", ".getLeopardDeliveryReport", function(){
+            var wo_id = $(this).attr('data');
+            var token = "{{ csrf_token() }}";
+            $.ajax({
+                type:'POST',
+                url:"{{ route('getLeopardDeliveryReport') }}",
+                data:{
+                    wo_id: wo_id
+                },
+                dataType:'json',
+                success:function(data){
+                    $('#payment-details').modal('show');
+                    var html ='<pre>'+JSON.stringify(data.data, null, 2);
+                        html +='</pre>';
+                        $("#payment-content").html(html);
+                    objTable.draw(); 
+                }
+            });
+        });
         
     $('#sale-table').DataTable( {
         "processing": true,

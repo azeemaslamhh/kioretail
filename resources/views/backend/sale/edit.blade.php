@@ -61,6 +61,18 @@
                                             </select>
                                         </div>
                                     </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>Courier</label>
+                                            <select name="courier_id" id="courier_id" class="form-control" disabled >
+                                            <option value="">Select Courier</option>
+                                                @foreach($courierData as $courier)
+                                                <option  value="{{ $courier->id }}" @if($courier->id==$courier_id) selected @endif >{{ $courier->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
                                 </div>
                                 <div class="row mt-3">
                                     <div class="col-md-12">

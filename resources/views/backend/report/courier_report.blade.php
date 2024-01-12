@@ -59,9 +59,41 @@
           <div class="modal-header">
               <h5 id="exampleModalLabel" class="modal-title"></h5>
               <button type="button" data-dismiss="modal" aria-label="Close" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
+              <input type="hidden" id="courier_id_db" name="courier_id_db" value="" />
+              <input type="hidden" id="name_data" name="name_data" value="" />
           </div>
           <div class="modal-body">
             <p class="italic">
+            <div class="row">
+                <div class="col-12 col-md-6">
+                    <div class="form-group mb-3">
+                        <label>Packing Start Date</label>
+                        <input type="date" id="start_date" name="start_date" class="form-control" placeholder="Choose date"/>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="form-group mb-3">
+                        <label>Packing End Date</label>
+                        <input type="date" id="end_date" name="end_date" class="form-control" placeholder="Choose date"/>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group mb-3">
+                        <select name="courier_status" id="courier_status" class="form-control">
+                            <option value="">Select Status</option>
+                            <option value="1">{{ trans('file.Pending') }}</option>
+                            <option value="2">{{ trans('file.due') }}</option>
+                            <option value="3">{{  trans('file.partial') }}</option>
+                            <option value="4">{{ trans('file.paid') }}</option>
+                        </select>    
+                    </div>
+                </div>
+                <div class="col-md-12 form-group">
+                    <input type="button" name="getReport" id="getReport" value="Get Report" class="btn btn-primary" />
+                </div>
+                
+
+            </div>
               <div class="row">
                   <div class="col-md-12 form-group">
                       <label>{{trans('file.total_no_sale')}} *</label>
@@ -75,6 +107,11 @@
                       <label>{{trans('file.total_product_cost')}} *</label>
                       <input type="text"  name="total_product_cost" readonly id="total_product_cost" class="form-control">
                   </div>
+                  <div class="col-md-12 form-group">
+                      <label>{{trans('file.total_shipping_cost')}} *</label>
+                      <input type="text"  name="total_shipping_cost" readonly id="total_shipping_cost" class="form-control">
+                  </div>
+                  
                   <div class="col-md-12 form-group">
                       <label>{{trans('file.due_amount')}} *</label>
                       <input type="text"  id="due_amount"  readonly name="due_amount" class="form-control">
@@ -116,57 +153,83 @@ function confirmDelete() {
     }
     return false;
 }
+
+function getCourierData(){
+    
+   var courier_id =  $("#courier_id_db").val();
+    
+    $("#total_no_sale").val("");
+    $("#total_sale_amount").val("");
+    $("#paid_amount").val("");
+    $("#due_amount").val("");
+    $("#profit").val("");
+    $("#total_product_cost").val("");
+    $("#exampleModalLabel").html(' Report');
+    var start_date = $("#start_date").val();
+    var end_date =  $("#end_date").val();
+    var courier_status =  $("#courier_status").val();            
+    var name_data =  $("#name_data").val();            
+
+    $.ajax({
+        type:'POST',
+        url:"{{ route('getCourierReport') }}",
+        data:{
+            "courier_id": courier_id,
+            "start_date": $("#start_date").val(),
+            "end_date": $("#end_date").val(),
+            "courier_status": courier_status,
+            '_token':token
+        },
+        dataType:'json',
+        success:function(data){                
+            if(data.data.totalSaleCount!=""){
+            $("#total_no_sale").val(data.data.totalSaleCount);
+            }
+            if(data.data.totalSaleamount!=""){
+            $("#total_sale_amount").val(data.data.totalSaleamount);
+            }
+            if(data.data.paid_amount!=""){
+            $("#paid_amount").val(data.data.paid_amount);
+            }
+            if(data.data.due_amount!=""){
+            $("#due_amount").val(data.data.due_amount);
+            }
+            if(data.data.profit!=""){
+            $("#profit").val(data.data.profit);
+            }
+            if(data.data.product_cost!=""){
+                $("#total_product_cost").val(data.data.product_cost);
+            }
+            if(data.data.product_cost!=""){
+                $("#total_shipping_cost").val(data.data.shipping_cost);
+            }
+
+            
+            
+            $("#exampleModalLabel").html(name_data+' Report');
+        
+        }
+    });
+}
 $(document).ready(function(){
     var token = "{{ csrf_token() }}";
+    
+    $("#start_date").val("");
+    $("#end_date").val("");
+    $("#courier_status").val("");
+
     $(document).on('click', '.view_report', function() {
             var courier_id  = $(this).attr('data');
+            $("#courier_id_db").val(courier_id);
+            $("#start_date").val("");
+            $("#end_date").val("");
             var name_data  = $(this).attr('name_data');
-            
-            
-                    $("#total_no_sale").val("");
-                    $("#total_sale_amount").val("");
-                    $("#paid_amount").val("");
-                    $("#due_amount").val("");
-                    $("#profit").val("");
-                    $("#total_product_cost").val("");
-                   $("#exampleModalLabel").html(' Report');
-
-            $.ajax({
-                type:'POST',
-                url:"{{ route('getCourierReport') }}",
-                data:{
-                    courier_id: courier_id,
-                    '_token':token
-                },
-                dataType:'json',
-                success:function(data){
-                //console.log("data");
-                //console.log(data);
-                   if(data.data.totalSaleCount!=""){
-                    $("#total_no_sale").val(data.data.totalSaleCount);
-                   }
-                   if(data.data.totalSaleamount!=""){
-                    $("#total_sale_amount").val(data.data.totalSaleamount);
-                   }
-                   if(data.data.paid_amount!=""){
-                    $("#paid_amount").val(data.data.paid_amount);
-                   }
-                   if(data.data.due_amount!=""){
-                    $("#due_amount").val(data.data.due_amount);
-                   }
-                   if(data.data.profit!=""){
-                    $("#profit").val(data.data.profit);
-                   }
-                   if(data.data.product_cost!=""){
-                    $("#total_product_cost").val(data.data.product_cost);
-                   }
-                   
-                   $("#exampleModalLabel").html(name_data+' Report');
-             
-                }
-            });
-        });
-    //view_report
+            $("#name_data").val(name_data);            
+           getCourierData();
+        });               
+});
+$(document).on('click', '#getReport', function() {           
+            getCourierData();
 });
     var table = $('#courier-table').DataTable( {
         responsive: true,

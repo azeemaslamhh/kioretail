@@ -1,16 +1,16 @@
 <?php return array (
   'app' => 
   array (
-    'name' => 'Laravel',
-    'env' => 'production',
-    'debug' => false,
-    'url' => 'http://localhost',
+    'name' => 'salepropos',
+    'env' => 'local',
+    'debug' => true,
+    'url' => 'https://kioretail.com',
     'asset_url' => NULL,
-    'timezone' => 'UTC',
+    'timezone' => 'Asia/Dhaka',
     'locale' => 'en',
     'fallback_locale' => 'en',
     'faker_locale' => 'en_US',
-    'key' => NULL,
+    'key' => 'base64:UrI+wnxgu1hCwfQcYjVYQC69xAtk/MrvqxeIRiO3Zxc=',
     'cipher' => 'AES-256-CBC',
     'providers' => 
     array (
@@ -127,25 +127,25 @@
   ),
   'auto_update' => 
   array (
-    'product_mode' => NULL,
-    'version' => NULL,
-    'bug_no' => NULL,
+    'product_mode' => 'CLIENT',
+    'version' => '4.1.0',
+    'bug_no' => '007',
     'demo_url' => 'https://salepropos.com/demo/api',
   ),
   'broadcasting' => 
   array (
-    'default' => 'null',
+    'default' => 'log',
     'connections' => 
     array (
       'pusher' => 
       array (
         'driver' => 'pusher',
-        'key' => NULL,
-        'secret' => NULL,
-        'app_id' => NULL,
+        'key' => '',
+        'secret' => '',
+        'app_id' => '',
         'options' => 
         array (
-          'cluster' => NULL,
+          'cluster' => 'mt1',
           'useTLS' => true,
         ),
       ),
@@ -166,7 +166,7 @@
   ),
   'cache' => 
   array (
-    'default' => 'file',
+    'default' => 'array',
     'stores' => 
     array (
       'apc' => 
@@ -218,14 +218,34 @@
       'dynamodb' => 
       array (
         'driver' => 'dynamodb',
-        'key' => NULL,
-        'secret' => NULL,
+        'key' => '',
+        'secret' => '',
         'region' => 'us-east-1',
         'table' => 'cache',
         'endpoint' => NULL,
       ),
     ),
-    'prefix' => 'laravel_cache',
+    'prefix' => 'salepropos_cache',
+  ),
+  'couriers' => 
+  array (
+    'leopardscod' => 
+    array (
+      'api_key' => 'B51A8412A3696E626642A92FD7FDC02A',
+      'api_password' => 'BIGBASKET@045',
+    ),
+    'merchant' => 
+    array (
+      'api_key' => 'MzdlNTQ5NmY3NjczNGEyOWEzOTZhNzAwMTZjM2RmZjA6YWNiY2ZhYTA2YWQ4NGM5NjliOGIzOTdhMGI1ZDBiMTY=',
+    ),
+    'callcourier' => 
+    array (
+      'acount_id' => '74144',
+    ),
+    'tcscourier' => 
+    array (
+      'api_key' => '74144',
+    ),
   ),
   'database' => 
   array (
@@ -236,7 +256,7 @@
       array (
         'driver' => 'sqlite',
         'url' => NULL,
-        'database' => 'D:\\Wamp\\www\\kioretail_new\\database\\database.sqlite',
+        'database' => 'u991133494_kioretail',
         'prefix' => '',
         'foreign_key_constraints' => true,
       ),
@@ -244,10 +264,10 @@
       array (
         'driver' => 'mysql',
         'url' => NULL,
-        'host' => '127.0.0.1',
+        'host' => 'localhost',
         'port' => '3306',
-        'database' => 'forge',
-        'username' => 'forge',
+        'database' => 'u991133494_kioretail',
+        'username' => 'root',
         'password' => '',
         'unix_socket' => '',
         'charset' => 'utf8mb4',
@@ -272,10 +292,10 @@
       array (
         'driver' => 'pgsql',
         'url' => NULL,
-        'host' => '127.0.0.1',
-        'port' => '5432',
-        'database' => 'forge',
-        'username' => 'forge',
+        'host' => 'localhost',
+        'port' => '3306',
+        'database' => 'u991133494_kioretail',
+        'username' => 'root',
         'password' => '',
         'charset' => 'utf8',
         'prefix' => '',
@@ -288,9 +308,9 @@
         'driver' => 'sqlsrv',
         'url' => NULL,
         'host' => 'localhost',
-        'port' => '1433',
-        'database' => 'forge',
-        'username' => 'forge',
+        'port' => '3306',
+        'database' => 'u991133494_kioretail',
+        'username' => 'root',
         'password' => '',
         'charset' => 'utf8',
         'prefix' => '',
@@ -304,7 +324,7 @@
       'options' => 
       array (
         'cluster' => 'redis',
-        'prefix' => 'laravel_database_',
+        'prefix' => 'salepropos_database_',
       ),
       'default' => 
       array (
@@ -445,16 +465,16 @@
       array (
         'driver' => 'local',
         'root' => 'D:\\Wamp\\www\\kioretail_new\\storage\\app/public',
-        'url' => '/storage',
+        'url' => 'https://kioretail.com/storage',
         'visibility' => 'public',
       ),
       's3' => 
       array (
         'driver' => 's3',
-        'key' => NULL,
-        'secret' => NULL,
-        'region' => NULL,
-        'bucket' => NULL,
+        'key' => '',
+        'secret' => '',
+        'region' => 'us-east-1',
+        'bucket' => '',
         'url' => NULL,
         'endpoint' => NULL,
       ),
@@ -929,8 +949,8 @@
       'sqs' => 
       array (
         'driver' => 'sqs',
-        'key' => NULL,
-        'secret' => NULL,
+        'key' => '',
+        'secret' => '',
         'prefix' => 'https://sqs.us-east-1.amazonaws.com/your-account-id',
         'queue' => 'your-queue-name',
         'region' => 'us-east-1',
@@ -965,15 +985,15 @@
     ),
     'ses' => 
     array (
-      'key' => NULL,
-      'secret' => NULL,
+      'key' => '',
+      'secret' => '',
       'region' => 'us-east-1',
     ),
   ),
   'session' => 
   array (
     'driver' => 'file',
-    'lifetime' => 4320,
+    'lifetime' => '120',
     'expire_on_close' => false,
     'encrypt' => false,
     'files' => 'D:\\Wamp\\www\\kioretail_new\\storage\\framework/sessions',
@@ -985,7 +1005,7 @@
       0 => 2,
       1 => 100,
     ),
-    'cookie' => 'laravel_session',
+    'cookie' => 'salepropos_session',
     'path' => '/',
     'domain' => NULL,
     'secure' => false,

@@ -24,6 +24,7 @@ class Kernel extends ConsoleKernel
         Commands\CheckOrdersDelivery::class,
         Commands\SyncOrders::class,
         Commands\SyncProducts::class,
+        Commands\Maintainance::class,
     ];
 
     /**
@@ -40,6 +41,8 @@ class Kernel extends ConsoleKernel
             $schedule->command($task->value)->everyMinute()->runInBackground();
         }
         $schedule->command('check:orders')->everyFifteenMinutes();
+        $schedule->command('check:maintainance')->daily();
+        
        // $schedule->command('check:orders')->everyFifteenMinutes();
         $sync_products_cron = UserCronSetting::getCronTime("sync_products");
         if ($sync_products_cron != "" and $sync_products_cron != 0 and $sync_products_cron != -1) {

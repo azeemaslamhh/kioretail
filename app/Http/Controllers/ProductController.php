@@ -70,7 +70,7 @@ class ProductController extends Controller
         $columns = array(
             2 => 'name',
             3 => 'code',
-            4 => 'brand_id',
+            4 => 'woocommerce_product_id',
             5 => 'category_id',
             6 => 'qty',
             7 => 'unit_id',
@@ -109,7 +109,7 @@ class ProductController extends Controller
             $q = Product::select('products.*')
                 ->with('category', 'brand', 'unit')
                 ->leftjoin('categories', 'products.category_id', '=', 'categories.id')
-                ->leftjoin('brands', 'products.brand_id', '=', 'brands.id')
+                //->leftjoin('brands', 'products.brand_id', '=', 'brands.id')
                 ->where([
                     ['products.name', 'LIKE', "%{$search}%"],
                     ['products.is_active', true]
@@ -124,9 +124,7 @@ class ProductController extends Controller
                     ['products.is_active', true]
                 ])
                 ->orWhere([
-                    ['brands.title', 'LIKE', "%{$search}%"],
-                    ['brands.is_active', true],
-                    ['products.is_active', true]
+                    ['products.woocommerce_product_id', 'LIKE', "%{$search}%"]
                 ]);
             //searching with custom field
             foreach ($field_names as $key => $field_name) {
@@ -175,10 +173,10 @@ class ProductController extends Controller
                     $nestedData['image'] = '<img src="images/zummXD2dvAtI.png" height="80" width="80">';
                 $nestedData['name'] = $product->name;
                 $nestedData['code'] = $product->code;
-                if ($product->brand)
-                    $nestedData['brand'] = $product->brand->title;
+                if ($product->woocommerce_product_id)
+                    $nestedData['woocommerce_product_id'] = $product->woocommerce_product_id;
                 else
-                    $nestedData['brand'] = "N/A";
+                    $nestedData['woocommerce_product_id'] = "N/A";
                 $rsCatpro = ProductCategories::where('product_id', $product->id);
                 $cateData = '';
                 if ($rsCatpro->count() > 0) {
@@ -258,7 +256,7 @@ class ProductController extends Controller
                     $tax_method = trans('file.Inclusive');
 
                 $nestedData['product'] = array(
-                    '[ "' . $product->type . '"', ' "' . $product->name . '"', ' "' . $product->code . '"', ' "' . $nestedData['brand'] . '"', ' "' . $nestedData['category'] . '"', ' "' . $nestedData['unit'] . '"', ' "' . $product->cost . '"', ' "' . $product->price . '"', ' "' . $tax . '"', ' "' . $tax_method . '"', ' "' . $product->alert_quantity . '"', ' "' . preg_replace('/\s+/S', " ", $product->product_details) . '"', ' "' . $product->id . '"', ' "' . $product->product_list . '"', ' "' . $product->variant_list . '"', ' "' . $product->qty_list . '"', ' "' . $product->price_list . '"', ' "' . $nestedData['qty'] . '"', ' "' . $product->image . '"', ' "' . $product->is_variant . '"]'
+                    '[ "' . $product->type . '"', ' "' . $product->name . '"', ' "' . $product->code . '"', ' "' . $nestedData['woocommerce_product_id'] . '"', ' "' . $nestedData['category'] . '"', ' "' . $nestedData['unit'] . '"', ' "' . $product->cost . '"', ' "' . $product->price . '"', ' "' . $tax . '"', ' "' . $tax_method . '"', ' "' . $product->alert_quantity . '"', ' "' . preg_replace('/\s+/S', " ", $product->product_details) . '"', ' "' . $product->id . '"', ' "' . $product->product_list . '"', ' "' . $product->variant_list . '"', ' "' . $product->qty_list . '"', ' "' . $product->price_list . '"', ' "' . $nestedData['qty'] . '"', ' "' . $product->image . '"', ' "' . $product->is_variant . '"]'
                 );
                 //$nestedData['imagedata'] = DNS1D::getBarcodePNG($product->code, $product->barcode_symbology);
                 $data[] = $nestedData;

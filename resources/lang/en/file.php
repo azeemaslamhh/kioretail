@@ -908,6 +908,10 @@ return [
 	"profit" => "Profit",
 	"courier_report" => "Courier Report",
 	"total_product_cost" => "Product Cost",
+	"due" => "Due",
+	"partial" => "Partial",
+	"paid" => "paid",
+	"total_shipping_cost" => "Total Shipping Cost",
 	
 
 ];

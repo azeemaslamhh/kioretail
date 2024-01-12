@@ -35,11 +35,42 @@ class CommonClass
             return null;
         }
     }
+    public function getLeopardsPaymentStatus($cn_numbers, $order_id)
+    {
+        try {
+            $api_key = 'C2027AB2E6D1601DE7BC73B7DEECA906'; //config('couriers.leopardscod.api_key');
+            $api_password = 'BIGBASKET@045'; //config('couriers.leopardscod.api_password');
+            $url = "http://new.leopardscod.com/webservice/getPaymentDetails/format/json/?api_key=";
+            $url = $url . $api_key . "&api_password=" . $api_password . "&cn_numbers=" . $cn_numbers;
+            $res = $this->getFrequest($url);
+            $resArray = json_decode($res, true);
+            if ($resArray['error'] == 0 && $resArray['status'] == 1) {
+                $payment_list = $resArray['payment_list'];
+                if ($payment_list[0]['status'] == 'Paid') {
+                    $saleRow = sale::find($order_id);
+                    sale::where('id', $order_id)->update(array(
+                        'payment_status' => 4,
+                        'paid_amount' => $saleRow->grand_total
+                    ));
+                    // Log::info("order id= ".$order_id);
+                } else {
+                    sale::where('id', $order_id)->update(array(
+                        'payment_status' => 1,
+                        'paid_amount' => 0,
+                    ));
+                }
+            }
+            return $resArray;
+        } catch (Exception $e) {
+
+            Log::info("Caught exception in getLeopardsPaymentStatus:" . $e->getMessage());
+        }
+    }
 
     public function getLeopardscodStatus($order_id, $reference_no, $courier_id, $trackingNO = "")
     {
         // Log::info('woocommerce order id:'.$order_id);
-        $api_key = 'B51A8412A3696E626642A92FD7FDC02A'; //config('couriers.leopardscod.api_key');
+        $api_key = 'C2027AB2E6D1601DE7BC73B7DEECA906'; //config('couriers.leopardscod.api_key');
         $api_password = 'BIGBASKET@045'; //config('couriers.leopardscod.api_password');
         $curl_handle = curl_init();
         curl_setopt($curl_handle, CURLOPT_URL, 'http://new.leopardscod.com/webservice/getShipmentDetailsByOrderID/format/json/');  // Write here Production Link
@@ -54,50 +85,70 @@ class CommonClass
         $buffer = curl_exec($curl_handle);
         curl_close($curl_handle);
         $resArray = json_decode($buffer, true);
+        Log::info("resArray");
+        Log::info($resArray);
         if (isset($resArray['data'][0])) {
             $orderDetail = $resArray['data'][0];
+            $shipment_address = isset($orderDetail['shipment_address']) ? $orderDetail['shipment_address'] : "N/A";
 
             if ($orderDetail['booked_packet_status'] == 'Delivered') {
-                $shipment_address = isset($orderDetail['shipment_address']) ? $orderDetail['shipment_address'] : "N/A";
+
 
                 $this->updateDeliveredOrderStatus($order_id, $reference_no, $courier_id, $shipment_address, $trackingNO);
             }
-        }
-    }
-    public function getLeopardsPaymentStatus($cn_numbers,$order_id){
-        try{
-            $api_key = 'B51A8412A3696E626642A92FD7FDC02A'; //config('couriers.leopardscod.api_key');
-            $api_password = 'BIGBASKET@045'; //config('couriers.leopardscod.api_password');
-            $url = "http://new.leopardscod.com/webservice/getPaymentDetails/format/json/?api_key=";
-            $url = $url.$api_key."&api_password=".$api_password."&cn_numbers=".$cn_numbers;
-            $res = $this->getFrequest($url);
-            $resArray = json_decode($res,true);
-            if($resArray['error']==0 && $resArray['status']==1){
-                $payment_list = $resArray['payment_list'];
-                if($payment_list[0]['status']=='Paid'){
-                    $saleRow = sale::find($order_id);
-                    sale::where('id',$order_id)->update(array(
-                        'payment_status'=>4,
-                        'paid_amount'=>$saleRow->grand_total
-                    ));
-                   // Log::info("order id= ".$order_id);
-                }else{
-                    sale::where('id',$order_id)->update(array(
-                        'payment_status'=>1,
-                        'paid_amount'=>0,                        
-                    ));
+            if (isset($orderDetail['booking_date'])) {
+                $booking_date = $orderDetail['booking_date'];
+                $booking_date = date("Y-m-d", strtotime($booking_date));
+                $rsOrder = DB::table('sales')->where('woocommerce_order_id', $order_id);
+                if ($rsOrder->count() > 0) {
+                    $kioretailOrderID = $rsOrder->value('id');
+                    $rsDelivered = DB::table('deliveries')->where('sale_id', $kioretailOrderID);
+                    if ($rsDelivered->count() > 0) {
+                        Delivery::where('sale_id', $kioretailOrderID)->update(array(
+                            'booking_date' => $booking_date
+                        ));
+                    } else {
+                        $objDelivery = new Delivery();
+                        $objDelivery->fill(array(
+                            'reference_no' => $reference_no,
+                            'sale_id' => $kioretailOrderID,
+                            'user_id' => 1,
+                            'courier_id' => $courier_id,
+                            'address' => $shipment_address,
+                            'tracking_no' => $trackingNO,
+                        ));
+                        $objDelivery->save();
+                    }
                 }
+                //Delivery::
             }
-            
-
-        }catch (Exception $e) {
-
-            Log::info("Caught exception in getLeopardsPaymentStatus:" . $e->getMessage());
         }
-       
+        return $resArray;
     }
 
-    
+    public function getLeopardsDeliveryStatus($order_id)
+    {
+        // Log::info('woocommerce order id:'.$order_id);
+        $api_key = 'C2027AB2E6D1601DE7BC73B7DEECA906'; //config('couriers.leopardscod.api_key');
+        $api_password = 'BIGBASKET@045'; //config('couriers.leopardscod.api_password');
+        $curl_handle = curl_init();
+        curl_setopt($curl_handle, CURLOPT_URL, 'http://new.leopardscod.com/webservice/getShipmentDetailsByOrderID/format/json/');  // Write here Production Link
+        curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl_handle, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+        curl_setopt($curl_handle, CURLOPT_CUSTOMREQUEST, 'POST');
+        curl_setopt($curl_handle, CURLOPT_POSTFIELDS, json_encode(array(
+            'api_key'       => $api_key,
+            'api_password'  => $api_password,
+            'shipment_order_id' => array($order_id),                      // E.g. array('Order Id') OR  array('Order Id-1', 'Order Id-2', 'Order Id-3')
+        )));
+        $buffer = curl_exec($curl_handle);
+        curl_close($curl_handle);
+        $resArray = json_decode($buffer, true);
+        return $resArray;
+        
+    }
+
+
     public function updateDeliveredOrderStatus($order_id, $reference_no, $courier_id, $shipment_address, $trackingNO)
     {
         $rsOrder = DB::table('sales')->where('woocommerce_order_id', $order_id);
@@ -105,8 +156,7 @@ class CommonClass
             $kioretailOrderID = $rsOrder->value('id');
             $rsDelivered = DB::table('deliveries')->where('sale_id', $kioretailOrderID);
             Sale::where('id', $kioretailOrderID)->update(array(
-                'sale_status' => 1,
-                'payment_status' => 3
+                'sale_status' => 1                
             ));
             if ($rsDelivered->count() > 0) {
                 Delivery::where('sale_id', $kioretailOrderID)->update(array(
@@ -169,7 +219,7 @@ class CommonClass
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);        
+        $response = curl_exec($ch);
         if (curl_errno($ch)) {
             Log::info("Curl error:" . curl_error($ch));
         }
@@ -186,7 +236,7 @@ class CommonClass
         $rsOrder = DB::table('sales')->where('woocommerce_order_id', $order_id);
         if ($rsOrder->count() > 0) {
             $kioretailOrderID = $rsOrder->value('id');
-            $rsDelivered = DB::table('deliveries')->where('sale_id', $kioretailOrderID);            
+            $rsDelivered = DB::table('deliveries')->where('sale_id', $kioretailOrderID);
             if ($rsDelivered->count() == 0) {
                 $objDelivery = new Delivery();
                 $objDelivery->fill(array(
@@ -197,8 +247,8 @@ class CommonClass
                     'address' => $shipment_address,
                     'tracking_no' => $trackingNO,
                     'status' => $status,
-                ));                
-            }else{
+                ));
+            } else {
                 $deliverID = $rsDelivered->value('id');
                 $objDelivery = Delivery::find($deliverID);
                 $objDelivery->fill(array(
@@ -207,196 +257,148 @@ class CommonClass
                     'user_id' => 1,
                     'courier_id' => $courier_id,
                     'address' => $shipment_address,
-                    'tracking_no' => $trackingNO                    
+                    'tracking_no' => $trackingNO
                 ));
             }
             $objDelivery->save();
         }
     }
-    public function updateOrderStatus($kioretailOrderID,$status){
+    public function updateOrderStatus($kioretailOrderID, $status)
+    {
         Sale::where('id', $kioretailOrderID)->update(array(
             'sale_status' => 1,
             'payment_status' => $status
         ));
     }
 
-    
-    public function getCourierReport($courier_id,$start_date="",$end_date=""){
+
+    public function getCourierReport($courier_id, $start_date = "", $end_date = "", $courier_status = "")
+    {
         $totalSaleCount = 0;
         $totalSaleamount = 0;
         $paid_amount = 0;
         $due_amount = 0;
-         $result = Sale::join('deliveries','sales.id','deliveries.sale_id')->where('deliveries.courier_id',$courier_id);
-        if($start_date!="")
-            $result->where('sales.created_at','>=',$start_date);
-        
-        if($start_date!="")
-            $result->where('sales.created_at','>=',$end_date);
+        //echo "<br />-----------start_date==".$start_date;
+        //echo "<br / >end_date==".$end_date; exit;
 
-        $result2 = $result; 
+        $result = sale::join('deliveries', 'sales.id', 'deliveries.sale_id')->where('deliveries.courier_id', $courier_id);
+        //echo '<br / >'.$courier_id;
+        if ($start_date != "") {
+            $start_date = date("Y-m-d", strtotime($start_date));
+            $result->where('deliveries.booking_date', '>=', $start_date);
+            //echo '<br / >'.$start_date;
+        }
+        if ($end_date != "") {
+            $end_date = date("Y-m-d", strtotime($end_date));
+            $result->where('deliveries.booking_date', '<=', $end_date);
+            //echo '<br / >'.$end_date;
+        }
 
 
-        if($result->count()>0){
-            $saleRow = $result->select(DB::raw('sum(sales.grand_total) as total_sale_amount, count(sales.id) as total_sale_count, sum(paid_amount) as paid_amount'))->first();
+
+
+
+        if ($courier_status != "") {
+            $result->where('sales.payment_status', '>=', $courier_status);
+            //echo '<br / >'.$courier_status;
+        }
+
+
+        //echo "query = ".$result->toSql(); exit;
+
+        $result2 = $result;
+
+
+        if ($result->count() > 0) {
+            $saleRow = $result->select(DB::raw('sum(sales.grand_total) as total_sale_amount, count(sales.id) as total_sale_count, sum(paid_amount) as paid_amount , sum(shipping_cost) as shipping_cost'))->first();
             //select(DB::raw('sum(sales.grand_total) as total_sale_amount, count(sales.id) as total_sale_count, sum(paid_amount) as paid_amount')->first()->toArray();
             $totalSaleCount = $saleRow->total_sale_count;
             $totalSaleamount = $saleRow->total_sale_amount;
-            $paid_amount = $saleRow['paid_amount'];
+            $paid_amount = $saleRow->paid_amount;
+            $shipping_cost = $saleRow->shipping_cost;
         }
 
         $shipping_cost = $result2->where('sales.is_shipping_free')->sum('sales.shipping_cost');
-        
-        $product_cost = $this->calculateAverageCOGS($courier_id,$start_date="",$end_date="");
+
+        $product_cost = $this->calculateAverageCOGS($courier_id, $start_date, $end_date ,$courier_status);
         $profit = 0;
-        if($totalSaleamount > 0){
-            $profit = $totalSaleamount-$product_cost-$shipping_cost;
+        if ($totalSaleamount > 0) {
+            $profit = $totalSaleamount - $product_cost - $shipping_cost;
         }
-        $due_amount  = $totalSaleamount-$paid_amount;
+        $due_amount  = $totalSaleamount - $paid_amount;
         return array(
-            'totalSaleCount'=>$totalSaleCount,
-            'totalSaleamount'=>number_format($totalSaleamount, 2),
-            'paid_amount'=>number_format($paid_amount, 2),
-            'profit'=>number_format($profit, 2),
-            'due_amount'=>number_format($due_amount, 2),
-            'product_cost'=>number_format($product_cost, 2),
+            'totalSaleCount' => $totalSaleCount,
+            'totalSaleamount' => number_format($totalSaleamount, 2),
+            'paid_amount' => number_format($paid_amount, 2),
+            'profit' => number_format($profit, 2),
+            'due_amount' => number_format($due_amount, 2),
+            'product_cost' => number_format($product_cost, 2),
+            'shipping_cost' => number_format($shipping_cost, 2),
         );
-            
     }
 
-    public function calculateAverageCOGS($courier_id = 0,$start_date,$end_date)
+    public function calculateAverageCOGS($courier_id, $start_date , $end_date , $courier_status) //$courier_id,$start_date,$end_date,$courier_status
     {
-        $product_cost = 0;
-        $result = Product_Sale::join('sales', 'product_sales.sale_id', '=', 'sales.id');
-                        
-                        if($courier_id > 0){
-                            $result->join('deliveries','sales.id','deliveries.sale_id');
-                        }
+        try {
+            //  echo '<br /> courier_id= '.$courier_id;
+            //  echo '<br /> start_date= '.$start_date;
+            //  echo '<br /> end date = '.$end_date;
+            //  echo '<br /> courier_status= '.$courier_status; exit;
+            $product_cost = 0;
+            $result = DB::table('deliveries')->join('sales','deliveries.sale_id','sales.id')->select('deliveries.sale_id','sales.woocommerce_order_id');
+
+            if ($courier_id > 0)
+                $result->where('deliveries.courier_id', $courier_id);
+
+            if ($start_date != "")
+                $result->whereDate('deliveries.booking_date', '>=', $start_date);
+
+            if ($start_date != "")
+                $result->whereDate('deliveries.booking_date', '<=', $end_date);
+            
+//                echo 'count='.$result->count();
+
+            if ($result->count() > 0) {
+                $sale_data = $result->get();            
+                /*echo '<pre>';
+                print_r(json_decode($product_sale_data,true));
+                exit;
+                */
+                $i = 1;
+                foreach ($sale_data as $saleRow) {
+                    $resultProductSale = DB::table("product_sales")->where('product_sales.sale_id',$saleRow->sale_id);
+                    //Log::info("woocommerce_order_id : ".$saleRow->woocommerce_order_id);
+                    if($resultProductSale->count()>0){
+                        $product_sales_data = $resultProductSale->select('product_id','qty')->get();
+                        foreach($product_sales_data as $product_sales_Row){
+                            $resultProductSale = DB::table("products")->where('id',$product_sales_Row->product_id);
+                            if($resultProductSale->count()>0){
+                                $cost = $resultProductSale->value("cost");
+                                $product_cost += $product_sales_Row->qty*$cost;   
+                                Log::info("woocommerce_order_id : ".$saleRow->woocommerce_order_id);
+                                Log::info("cost : ".$cost);
+                                Log::info("qty : ".$product_sales_Row->qty);
+                                Log::info("product_cost : ".$product_cost);
+                                Log::info("counter : ".$i);
+                                Log::info("-------------------------------------------");
                                 
-
-                        $result->select(DB::raw('product_sales.product_id, product_sales.product_batch_id, product_sales.sale_unit_id, sum(product_sales.qty) as sold_qty, sum(product_sales.total) as sold_amount'));
-                            
-                        if($courier_id > 0)
-                                $result->whereDate('deliveries.courier_id' , $courier_id);
-                        if($start_date!="") 
-                                $result->whereDate('sales.created_at', '>=' , $start_date);
-                            
-                        if($start_date!="")
-                            $result->whereDate('sales.created_at', '<=' , $end_date);
-
-                        if($courier_id > 0){
-                            $result->where('deliveries.courier_id',$courier_id);
-                        }
-                                                                    
-                        $result->groupBy('product_sales.product_id', 'product_sales.product_batch_id');
-        
-        if($result->count()>0){
-            $product_sale_data= $result->get();
-            foreach ($product_sale_data as $key => $product_sale) {
-                $product_data = Product::select('type', 'product_list', 'variant_list', 'qty_list')->find($product_sale->product_id);
-                if($product_data && $product_data->type == 'combo') {
-                    
-                    $product_list = explode(",", $product_data->product_list);
-                   // Log::info(print_r($product_list,true));
-                    //Log::info("----------------------");
-                    //Product_Sale::where("sale_id",$product_data->id);
-    
-                    if($product_data->variant_list)
-                        $variant_list = explode(",", $product_data->variant_list);
-                    else
-                        $variant_list = [];
-    
-    
-                    $qty_list = explode(",", $product_data->qty_list);
-    
-                    foreach ($product_list as $index => $product_id) {
-                        if(count($variant_list) && $variant_list[$index]) {
-                            $product_purchase_data = ProductPurchase::where([
-                                ['product_id', $product_id],
-                                ['variant_id', $variant_list[$index] ]
-                            ])
-                            ->select('recieved', 'purchase_unit_id', 'total')
-                            ->get();
-                        }
-                        else {
-                            $product_purchase_data = ProductPurchase::where('product_id', $product_id)
-                            ->select('recieved', 'purchase_unit_id', 'total')
-                            ->get();
-                        }
-                        $total_received_qty = 0;
-                        $total_purchased_amount = 0;
-                        $sold_qty = floatval(0);
-                        if(isset($product_sale->sold_qty) && isset($qty_list[$index])){
-                            $sold_qty = floatval($product_sale->sold_qty) * floatval($qty_list[$index]);
-                        }
-                        
-    
-                        $units = Unit::select('id', 'operator', 'operation_value')->get();
-                        foreach ($product_purchase_data as $key => $product_purchase) {
-                            $purchase_unit_data = $units->where('id',$product_purchase->purchase_unit_id)->first();
-                            if($purchase_unit_data->operator == '*')
-                                $total_received_qty += $product_purchase->recieved * $purchase_unit_data->operation_value;
-                            else
-                                $total_received_qty += $product_purchase->recieved / $purchase_unit_data->operation_value;
-                            $total_purchased_amount += $product_purchase->total;
-                        }
-                        if($total_received_qty)
-                            $averageCost = $total_purchased_amount / $total_received_qty;
-                        else
-                            $averageCost = 0;
-                        $product_cost += $sold_qty * $averageCost;
+                                $i++;
+                            }
+                        }                        
                     }
-                }
-                else {
-                    if($product_sale->product_batch_id) {
-                        $product_purchase_data = ProductPurchase::where([
-                            ['product_id', $product_sale->product_id],
-                            ['product_batch_id', $product_sale->product_batch_id]
-                        ])
-                        ->select('recieved', 'purchase_unit_id', 'total')
-                        ->get();
-                    }
-                    elseif($product_sale->variant_id) {
-                        $product_purchase_data = ProductPurchase::where([
-                            ['product_id', $product_sale->product_id],
-                            ['variant_id', $product_sale->variant_id]
-                        ])
-                        ->select('recieved', 'purchase_unit_id', 'total')
-                        ->get();
-                    }
-                    else {
-                        $product_purchase_data = ProductPurchase::where('product_id', $product_sale->product_id)
-                        ->select('recieved', 'purchase_unit_id', 'total')
-                        ->get();
-                    }
-                    $total_received_qty = 0;
-                    $total_purchased_amount = 0;
-                    $units = Unit::select('id', 'operator', 'operation_value')->get();
-                    if($product_sale->sale_unit_id) {
-                        $sale_unit_data = $units->where('id', $product_sale->sale_unit_id)->first();
-                        if($sale_unit_data->operator == '*')
-                            $sold_qty = $product_sale->sold_qty * $sale_unit_data->operation_value;
-                        else
-                            $sold_qty = $product_sale->sold_qty / $sale_unit_data->operation_value;
-                    }
-                    else {
-                        $sold_qty = $product_sale->sold_qty;
-                    }
-                    foreach ($product_purchase_data as $key => $product_purchase) {
-                        $purchase_unit_data = $units->where('id', $product_purchase->purchase_unit_id)->first();
-                        if($purchase_unit_data->operator == '*')
-                            $total_received_qty += $product_purchase->recieved * $purchase_unit_data->operation_value;
-                        else
-                            $total_received_qty += $product_purchase->recieved / $purchase_unit_data->operation_value;
-                        $total_purchased_amount += $product_purchase->total;
-                    }
-                    if($total_received_qty)
-                        $averageCost = $total_purchased_amount / $total_received_qty;
-                    else
-                        $averageCost = 0;
-                    $product_cost += $sold_qty * $averageCost;
+                       
                 }
             }
-        }                                                                        
-        return $product_cost;
+            return $product_cost;
+        } catch (Exception $e) {
+
+            Log::info("Caught exception in calculateAverageCOGS:" . $e->getMessage());
+        }
+    }
+    public function bookParcel($courier_id, $order_id)
+    {
+        if ($courier_id == 3) {          // leopardscourier Service
+
+        }
     }
 }

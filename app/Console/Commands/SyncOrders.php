@@ -126,7 +126,7 @@ class SyncOrders extends Command
                     $orderData = $this->woocommerce->get('orders', array('per_page' => 100, 'page' => $page));
                     //Log::info(print_r($orderData,true)); exit;
                     // Log::info("start");
-                    $oneMonthAgo = Carbon::now()->subDays(2);
+                    $oneMonthAgo = Carbon::now()->subDays(15);
                     $date1 = date("Y-m-d H:i:s", strtotime($oneMonthAgo));
                     ///Log::info($date1);
                     $couriersArray = array();
@@ -134,7 +134,7 @@ class SyncOrders extends Command
                     $shipment_address = '';
                     foreach ($orderData as $order) {
                         $date2 = date("Y-m-d H:i:s", strtotime($order->date_created));
-                        $oneMonthAgo = '2023-12-13 24:59:29';
+                        $oneMonthAgo = '2023-12-15 24:59:29';
                         if ($date2 >= $oneMonthAgo) {
 
 
@@ -208,7 +208,7 @@ class SyncOrders extends Command
 
                             $date_created = date("Y-m-d H:i:s", strtotime($order->date_created));
                             $date_modified = date("Y-m-d H:i:s", strtotime($order->date_modified));
-                            $reference_no  = 'sr-' . date("Ymd") . '-' . date("his");
+                            $reference_no  = 'sr-' . date("Ymd") . '-' . time();
                             $orderInsert  = 0 ;
                             $OrderData = array(
                                 'reference_no' => $reference_no,
@@ -287,7 +287,19 @@ class SyncOrders extends Command
                             $total_tax_canceled = 0;
                             $total_amount_canceled = 0;
                             $grand_total_canceld = 0;
+                            $allProductIds  = array();
+                            $rsProductSale = Product_Sale::where('sale_id',$sale_id);
+                            if($rsProductSale->count()>0){
+                                $allProductIds = $rsProductSale->pluck('product_id')->toArray();
+                            }
                             foreach ($line_items as $item) {
+                                $productIdToRemove = $item->product_id;
+                                $keyToRemove = array_search($productIdToRemove, $allProductIds);
+                                if ($keyToRemove !== false) {
+                                    unset($allProductIds[$keyToRemove]);
+                                    $allProductIds = array_values($allProductIds);                            
+                                }
+                                
                                 $productResult = DB::table('products')->where('woocommerce_product_id', $item->product_id);
                                 $productID = 0;
                                 if ($productResult->count() > 0) {
@@ -349,6 +361,9 @@ class SyncOrders extends Command
                             
                             
                                 
+                            }
+                            if(count($allProductIds)>0){
+                                Product_Sale::whereIn('product_id',$allProductIds)->delete();
                             }
                             if ($isCancelled) {
                                 $cancelOrderData['total_qty'] = $totalQty;

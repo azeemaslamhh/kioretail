@@ -291,6 +291,8 @@ Route::group(['middleware' => ['common', 'auth', 'active']], function() {
         Route::get('sales/today-sale', 'todaySale');
         Route::get('sales/today-profit/{warehouse_id}', 'todayProfit');
         Route::get('sales/check-discount', 'checkDiscount');
+        Route::post('sales/getLeopardsCourierPaymentStatus', 'getLeopardsCourierPaymentStatus')->name('getLeopardsCourierPaymentStatus');
+        Route::post('sales/getLeopardDeliveryReport', 'getLeopardDeliveryReport')->name('getLeopardDeliveryReport');
     });
     Route::resource('sales', SaleController::class);
 

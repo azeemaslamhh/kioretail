@@ -63,6 +63,7 @@ use Salla\ZATCA\Tags\InvoiceTotalAmount;
 use Salla\ZATCA\Tags\Seller;
 use Salla\ZATCA\Tags\TaxNumber;
 use Illuminate\Support\Facades\Log;
+use App\Classes\CommonClass;
 
 class SaleController extends Controller
 {
@@ -207,14 +208,14 @@ class SaleController extends Controller
 
         ///$search = $request->input('search.value');
 
-        $aColumns = ['sales.id', 'sales.created_at', 'sales.reference_no', 'couriers.name', 'billers.phone_number', 'billers.name', 'sales.payment_status', 'deliveries.status', 'sales.grand_total', '', 'sales.paid_amount'];
+        $aColumns = ['sales.woocommerce_order_id', 'deliveries.booking_date', 'sales.reference_no', 'couriers.name', 'billers.phone_number', 'billers.name', 'sales.payment_status', 'deliveries.status', 'sales.grand_total', '', 'sales.paid_amount'];
         $result = DB::table('sales')
             //->leftjoin('customers', 'sales.customer_id', '=', 'customers.id')
             ->leftjoin('deliveries', 'sales.id', '=', 'deliveries.sale_id')
             ->leftjoin('billers', 'sales.biller_id', '=', 'billers.id')            
             ->leftjoin('couriers', 'deliveries.courier_id', '=', 'couriers.id')
             ->leftjoin('warehouses', 'sales.warehouse_id', '=', 'warehouses.id')
-            ->select(['sales.id', 'sales.created_at', 'sales.reference_no', 'couriers.name as courier_name', 'billers.phone_number as biller_phone_number', 'billers.name', 'sales.payment_status', 'deliveries.status', 'sales.grand_total', 'sales.paid_amount','sales.sale_status']);
+            ->select(['sales.id', 'deliveries.booking_date', 'sales.reference_no', 'couriers.name as courier_name', 'billers.phone_number as biller_phone_number', 'billers.name', 'sales.payment_status', 'deliveries.status', 'sales.grand_total', 'sales.paid_amount','sales.sale_status','sales.woocommerce_order_id','deliveries.courier_id']);
 
         if (Auth::user()->role_id > 2 && config('staff_access') == 'own')
             $result->where('sales.user_id', Auth::id());
@@ -226,14 +227,13 @@ class SaleController extends Controller
             $result->where('sales.warehouse_id', $warehouse_id);
 
         if($starting_date){
-            $result->where('sales.created_at','>=',$starting_date);
+            $result->where('deliveries.booking_date','>=',$starting_date);
         }
         if($starting_date){
-            $result->where('sales.created_at','<=',$ending_date);
+            $result->where('deliveries.booking_date','<=',$ending_date);
         }
 
-        if($warehouse_id)
-            $result->where('sales.warehouse_id', $warehouse_id);
+     
 
         if($sale_status){
             if($sale_status==1){
@@ -274,7 +274,7 @@ class SaleController extends Controller
             //$aColumns = ['sales.id', 'sales.created_at', 'sales.reference_no', 'couriers.name', 'customers.name','sales.sale_status','sales.payment_status','deliveries.status','sales.grand_total'];
             $result->Where(function ($query) use ($sKeywords) {
                 $query->orWhere('sales.id', 'LIKE', "%{$sKeywords}%")->orWhere('sales.reference_no', 'LIKE', "%{$sKeywords}%")
-                    ->orWhere('couriers.name', 'LIKE', "%{$sKeywords}%")->orWhere('billers.phone_number', 'LIKE', "%{$sKeywords}%")->orWhere('sales.grand_total', 'LIKE', "%{$sKeywords}%")->orWhere('billers.name', 'LIKE', "%{$sKeywords}%"); //billers.name
+                    ->orWhere('couriers.name', 'LIKE', "%{$sKeywords}%")->orWhere('billers.phone_number', 'LIKE', "%{$sKeywords}%")->orWhere('sales.grand_total', 'LIKE', "%{$sKeywords}%")->orWhere('billers.name', 'LIKE', "%{$sKeywords}%")->orWhere('sales.woocommerce_order_id', 'LIKE', "%{$sKeywords}%"); //billers.name
             });
         }
 
@@ -311,7 +311,7 @@ class SaleController extends Controller
         foreach ($salesData as $aRow) {
             $id = $aRow->id;
             //['sales.id', 'sales.created_at', 'sales.reference_no', 'couriers.name as courier_name', 'customers.name as customer_name','sales.sale_status','sales.payment_status','deliveries.status','sales.grand_total']
-            $created_at = date("M j, Y, g:i a", strtotime($aRow->created_at));
+            $created_at = date("M j, Y, g:i a", strtotime($aRow->booking_date));
 
 
 
@@ -337,9 +337,11 @@ class SaleController extends Controller
                 $payment_status = '<div class="badge badge-danger">' . trans('file.Due') . '</div>';
             } elseif ($aRow->payment_status == 3) {
                 $payment_status = '<div class="badge badge-warning">' . trans('file.Partial') . '</div>';
-            } else {
+            } elseif ($aRow->payment_status == 4) {
                 $payment_status = '<div class="badge badge-success">' . trans('file.Paid') . '</div>';
                 $sale_status = '<div class="badge badge-success">' . trans('file.Completed') . '</div>';
+            } else {
+                $payment_status = '<div class="badge badge-warning">Processing</div>';                
             }
 
 
@@ -351,7 +353,7 @@ class SaleController extends Controller
                 elseif ($aRow->status == 3)
                     $delivery_status = '<div class="badge badge-info">' . trans('file.Delivered') . '</div>';
             } else {
-                $delivery_status = 'N/A';
+                $delivery_status = '<div class="badge badge-info">Processing</div>';
             }
 
             /*if ($aRow->sale_status != 1) {
@@ -368,6 +370,14 @@ class SaleController extends Controller
                                 <li>
                                     <button type="button" class="btn btn-link view" data="' . $id . '"><i class="fa fa-eye"></i> ' . trans('file.View') . '</button>
                                 </li>';
+            if($aRow->courier_id==3){
+                $sOptions .= ' <li>
+                <button type="button" class="btn btn-link getLeopardReport" data="' . $aRow->woocommerce_order_id. '"><i class="fa fa-eye"></i> Get Payment Status</button> </li>';
+                $sOptions .= ' <li>
+                <button type="button" class="btn btn-link getLeopardDeliveryReport" data="' . $aRow->woocommerce_order_id. '"><i class="fa fa-eye"></i> Get Delivery Status</button> </li>';
+                //getLeopardDeliveryReport
+            }
+                                //getLeopardReport
             if (in_array("sales-edit", $all_permission)) {
                 if ($aRow->sale_status != 3)
                     $sOptions .= '<li>
@@ -407,7 +417,7 @@ class SaleController extends Controller
             $due = number_format(floatval($aRow->grand_total) - floatval($returned_amount) - floatval($aRow->paid_amount), config('decimal'));
 
             $output['aaData'][] = array(
-                $id,
+                $aRow->woocommerce_order_id,
                 @utf8_encode($created_at),
                 @utf8_encode($aRow->reference_no),
                 @utf8_encode($aRow->courier_name),
@@ -2044,6 +2054,8 @@ class SaleController extends Controller
     public function edit($id)
     {
         $role = Role::find(Auth::user()->role_id);
+        $courierData = Courier::where(array('is_active'=>1))->select("id","name")->get();    
+        $courier_id = 0;    
         if ($role->hasPermissionTo('sales-edit')) {
             $lims_customer_list = Customer::where('is_active', true)->get();
             $lims_warehouse_list = Warehouse::where('is_active', true)->get();
@@ -2056,7 +2068,12 @@ class SaleController extends Controller
             else
                 $currency_exchange_rate = 1;
             $custom_fields = CustomField::where('belongs_to', 'sale')->get();
-            return view('backend.sale.edit', compact('lims_customer_list', 'lims_warehouse_list', 'lims_biller_list', 'lims_tax_list', 'lims_sale_data', 'lims_product_sale_data', 'currency_exchange_rate', 'custom_fields'));
+
+            $rsDeliver = Delivery::where('sale_id',$id);
+            if($rsDeliver->count()>0){
+                $courier_id = $rsDeliver->value('courier_id');
+            }
+            return view('backend.sale.edit', compact('lims_customer_list', 'lims_warehouse_list', 'lims_biller_list', 'lims_tax_list', 'lims_sale_data', 'lims_product_sale_data', 'currency_exchange_rate', 'custom_fields','courierData','courier_id'));
         } else
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
@@ -3267,5 +3284,43 @@ class SaleController extends Controller
         $this->fileDelete('documents/sale/', $lims_sale_data->document);
 
         return Redirect::to($url)->with('not_permitted', $message);
+    }
+    public function getLeopardsCourierPaymentStatus(Request $request)
+    {
+        $wo_id = $request->wo_id;        
+        $status = 'fail';
+        $rsSale = DB::table('sales')->join('deliveries','sales.id','deliveries.sale_id')->where('sales.woocommerce_order_id',$wo_id);
+        $resArray = array();
+        if($rsSale->count()>0){
+            $row = $rsSale->select('deliveries.tracking_no','sales.id')->first();
+            $commonObj = new CommonClass();
+            $cn_numbers = $row->tracking_no;
+            $order_id = $row->id;
+            $resArray = $commonObj->getLeopardsPaymentStatus($cn_numbers, $order_id);
+            $status= 'success'; 
+        }
+        echo json_encode(array(
+            'status'=>$status,
+            'data'=>$resArray
+        ));
+
+    }
+    public function getLeopardDeliveryReport(Request $request)
+    {
+        $wo_id = $request->wo_id;        
+        $status = 'fail';
+        $rsSale = DB::table('sales')->join('deliveries','sales.id','deliveries.sale_id')->where('sales.woocommerce_order_id',$wo_id);
+        $resArray = array();
+        if($rsSale->count()>0){
+            $row = $rsSale->select('deliveries.tracking_no','sales.id','sales.reference_no')->first();
+            $commonObj = new CommonClass();            
+            $resArray = $commonObj->getLeopardscodStatus($wo_id, $row->reference_no, 3, $row->tracking_no);
+            $status= 'success'; 
+        }
+        echo json_encode(array(
+            'status'=>$status,
+            'data'=>$resArray
+        ));
+
     }
 }

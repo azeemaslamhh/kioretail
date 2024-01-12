@@ -120,7 +120,7 @@ class OrdersController extends BaseController
 
                     $date_created = date("Y-m-d H:i:s", strtotime($order->date_created));
                     $date_modified = date("Y-m-d H:i:s", strtotime($order->date_modified));
-                    $reference_no  = 'sr-' . date("Ymd") . '-' . date("his");
+                    $reference_no  = 'sr-' . date("Ymd") . '-' . time();
                     $OrderData = array(
                         'reference_no' => $reference_no,
                         'user_id' => 1,
@@ -198,7 +198,20 @@ class OrdersController extends BaseController
                     $total_tax_canceled = 0;
                     $total_amount_canceled = 0;
                     $grand_total_canceld = 0;
+
+                    $allProductIds  = array();
+                    $rsProductSale = Product_Sale::where('sale_id',$sale_id);
+                    if($rsProductSale->count()>0){
+                        $allProductIds = $rsProductSale->pluck('product_id')->toArray();
+                    }
+
                     foreach ($line_items as $item) {
+                        $productIdToRemove = $item->product_id;
+                        $keyToRemove = array_search($productIdToRemove, $allProductIds);
+                        if ($keyToRemove !== false) {
+                            unset($allProductIds[$keyToRemove]);
+                            $allProductIds = array_values($allProductIds);                            
+                        }
                         $productResult = DB::table('products')->where('woocommerce_product_id', $item->product_id);
                         $productID = 0;
                         if ($productResult->count() > 0) {
@@ -253,6 +266,9 @@ class OrdersController extends BaseController
                                 'total' => doubleval($item->total)
                             );
                         }
+                    }
+                    if(count($allProductIds)>0){
+                        Product_Sale::whereIn('product_id',$allProductIds)->delete();
                     }
                     if ($isCancelled) {
                         $cancelOrderData['total_qty'] = $totalQty;
