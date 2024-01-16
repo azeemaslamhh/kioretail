@@ -3,6 +3,8 @@
 use App\Http\Controllers\DemoAutoUpdateController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\OrdersController;
+use App\Http\Controllers\API\ProductsController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -24,6 +26,9 @@ Route::middleware(['verify.token'])->group(function () {
      Route::controller(OrdersController::class)->group(function () {
          Route::post('/addOrders', 'addOrders')->name('add.orders');         
      });
+     Route::controller(ProductsController::class)->group(function () {
+        Route::post('/updateProductCallBack', 'updateProductCallBack')->name('update.productCallBack');         
+    });
     
  });
 

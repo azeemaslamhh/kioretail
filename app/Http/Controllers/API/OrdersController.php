@@ -19,29 +19,26 @@ use App\Classes\CommonClass;
 use App\Models\Product;
 use App\Models\CancelOrders;
 
-class OrdersController extends BaseController
-{
+class OrdersController extends BaseController {
 
-
-    public function woocommerceApi($woocommerce_setting)
-    {
+    public function woocommerceApi($woocommerce_setting) {
         if (!is_null($woocommerce_setting) && !empty($woocommerce_setting) && $woocommerce_setting->woocomerce_app_url && $woocommerce_setting->woocomerce_consumer_key && $woocommerce_setting->woocomerce_consumer_secret) {
             return new Client(
-                $woocommerce_setting->woocomerce_app_url,
-                $woocommerce_setting->woocomerce_consumer_key,
-                $woocommerce_setting->woocomerce_consumer_secret,
-                [
-                    'wp_api' => true,
-                    'version' => 'wc/v3',
-                ]
+                    $woocommerce_setting->woocomerce_app_url,
+                    $woocommerce_setting->woocomerce_consumer_key,
+                    $woocommerce_setting->woocomerce_consumer_secret,
+                    [
+                'wp_api' => true,
+                'version' => 'wc/v3',
+                    ]
             );
         } else {
             return null;
         }
     }
-    public function addOrders(Request $request)
-    {
-       
+
+    public function addOrders(Request $request) {
+
         try {
             $param = [
                 'user_id' => 'required|numeric',
@@ -58,41 +55,49 @@ class OrdersController extends BaseController
             if ($this->woocommerce != null) {
                 ///sleep(60);
                 $order = $this->woocommerce->get('orders/' . $request->order_id);
-                
+
                 //Log::info(print_r($order,true));
 
                 $billingObj = isset($order->billing) ? $order->billing : null;
-                $billing_id = 0;
+                $billing_id = 1;
+                $customer_id = 0;
                 if ($billingObj != null) {
-                    $billerData = array(
-                        'name' => $billingObj->first_name . ' ' . $billingObj->last_name,
-                        'company_name' => $billingObj->company,
-                        'address' => $billingObj->address_1,
-                        'city' => $billingObj->city,
-                        'state' => $billingObj->state,
-                        'postal_code' => $billingObj->postcode,
-                        'country' => $billingObj->country,
-                        'email' => $billingObj->email,
-                        'phone_number' => $billingObj->phone,
-                    );
 
-                    ///$objBiller = new Biller();
-                    if ($billingObj->phone) {
-                        $rsBilling = Biller::where("phone_number", $billingObj->phone);
-                        if ($rsBilling->count() > 0) {
-                            $billingRow = $rsBilling->first();
-                            $objBiller = Biller::find($billingRow->id);
-                            $objBiller->fill($billerData);
-                            $objBiller->save();
-                            $billing_id = $billingRow->id;
-                        }else{
-                            $billing_id = DB::table('billers')->insertGetId($billerData);
+
+                    if ($order->customer_id > 0) {
+                        $resultCustom = Customer::where('woocommerce_customer_id', $order->customer_id);
+                        if ($resultCustom->count() > 0) {
+                            $customer_id = $resultCustom->value('id');
+                        }
+                    } else {
+                        if ($billingObj->phone) {
+                            $shipment_address = $billingObj->address_1;
+                            $data = array(
+                                'customer_group_id' => 1,
+                                'user_id' => 1,
+                                'name' => $billingObj->first_name . ' ' . $billingObj->last_name,
+                                'company_name' => $billingObj->company,
+                                'email' => $billingObj->email,
+                                'phone_number' => $billingObj->phone,
+                                'address' => $shipment_address,
+                                'city' => $billingObj->city,
+                                'state' => $billingObj->state,
+                                'postal_code' => $billingObj->postcode,
+                                'country' => $billingObj->country,
+                                'is_active' => 1,
+                            );
+                            $resultCustom = Customer::where('phone_number', $billingObj->phone);
+                            if ($resultCustom->count() > 0) {
+                                $row = $resultCustom->first();
+                                $objCustomer = Customer::find($row->id);
+                                $objCustomer->fill($data);
+                                $objCustomer->save();
+                                $customer_id = $row->id;
+                            } else {
+                                $customer_id = DB::table('customers')->insertGetId($data);
+                            }
                         }
                     }
-
-                    
-                    $objBiller->fill($billerData);
-                    $billing_id = $objBiller->save();
 
                     $line_items = $order->line_items;
                     $total_qty = 0;
@@ -101,7 +106,7 @@ class OrdersController extends BaseController
                     $grand_total = 0;
                     $itemCount = 0;
                     $total_tax = 0;
-                    
+
                     foreach ($line_items as $item) {
                         $total_qty = $total_qty + $item->quantity;
                         $subtotal_tax = $subtotal_tax + $item->subtotal_tax;
@@ -120,11 +125,11 @@ class OrdersController extends BaseController
 
                     $date_created = date("Y-m-d H:i:s", strtotime($order->date_created));
                     $date_modified = date("Y-m-d H:i:s", strtotime($order->date_modified));
-                    $reference_no  = 'sr-' . date("Ymd") . '-' . time();
+                    $reference_no = 'sr-' . date("Ymd") . '-' . time();
                     $OrderData = array(
                         'reference_no' => $reference_no,
                         'user_id' => 1,
-                        'customer_id' => $order->customer_id,
+                        'customer_id' => $customer_id,
                         'total_qty' => $total_qty,
                         'total_tax' => $total_tax,
                         'total_price' => $total_price,
@@ -141,7 +146,7 @@ class OrdersController extends BaseController
                         'updated_at' => $date_modified
                     );
                     $rsSale = Sale::where('woocommerce_order_id', $order->id);
-                    $orderInsert  = 0 ;
+                    $orderInsert = 0;
                     if ($rsSale->count() > 0) {
                         $saleRow = $rsSale->first();
                         //$objsale = Sale::find($saleRow->id);
@@ -151,7 +156,6 @@ class OrdersController extends BaseController
                         //$objsale = new Sale();
                         $sale_id = DB::table('sales')->insertGetId($OrderData);
                         $orderInsert = 1;
-                        
                     }
                     // $objsale->fill($OrderData);
                     //$sale_id = $objsale->save();
@@ -182,10 +186,10 @@ class OrdersController extends BaseController
                             $cancelOrderData['reference_no'] = 'sr-' . date("Ymd") . '-' . date("his");
                         }
                         $cash_register_data = CashRegister::where([
-                            ['user_id', 1],
-                            ['warehouse_id', 1],
-                            ['status', true]
-                        ])->first();
+                                    ['user_id', 1],
+                                    ['warehouse_id', 1],
+                                    ['status', true]
+                                ])->first();
                         if ($cash_register_data)
                             $cancelOrderData['cash_register_id'] = $cash_register_data->id;
 
@@ -199,9 +203,9 @@ class OrdersController extends BaseController
                     $total_amount_canceled = 0;
                     $grand_total_canceld = 0;
 
-                    $allProductIds  = array();
-                    $rsProductSale = Product_Sale::where('sale_id',$sale_id);
-                    if($rsProductSale->count()>0){
+                    $allProductIds = array();
+                    $rsProductSale = Product_Sale::where('sale_id', $sale_id);
+                    if ($rsProductSale->count() > 0) {
                         $allProductIds = $rsProductSale->pluck('product_id')->toArray();
                     }
 
@@ -210,7 +214,7 @@ class OrdersController extends BaseController
                         $keyToRemove = array_search($productIdToRemove, $allProductIds);
                         if ($keyToRemove !== false) {
                             unset($allProductIds[$keyToRemove]);
-                            $allProductIds = array_values($allProductIds);                            
+                            $allProductIds = array_values($allProductIds);
                         }
                         $productResult = DB::table('products')->where('woocommerce_product_id', $item->product_id);
                         $productID = 0;
@@ -239,8 +243,8 @@ class OrdersController extends BaseController
                             'tax' => floatval(0),
                             'total' => floatval($item->total),
                         );
-                        if($orderInsert==1){
-                            Product::where('id',$productID)->decrement('qty', (int) $item->quantity);///qty
+                        if ($orderInsert == 1) {
+                            Product::where('id', $productID)->decrement('qty', (int) $item->quantity); ///qty
                         }
                         if ($productID == 0) {
                             $saleItemsData['missing_woocommerce_product_id'] = $item->product_id;
@@ -267,8 +271,8 @@ class OrdersController extends BaseController
                             );
                         }
                     }
-                    if(count($allProductIds)>0){
-                        Product_Sale::whereIn('product_id',$allProductIds)->delete();
+                    if (count($allProductIds) > 0) {
+                        Product_Sale::whereIn('product_id', $allProductIds)->delete();
                     }
                     if ($isCancelled) {
                         $cancelOrderData['total_qty'] = $totalQty;
@@ -296,20 +300,19 @@ class OrdersController extends BaseController
                             $objProductReturn->save();
                         }
                         $rsCancelOrders = CancelOrders::where(array(
-                            'product_id'=>$item->product_id,
-                            'sale_id'=>$sale_id
+                                    'product_id' => $item->product_id,
+                                    'sale_id' => $sale_id
                         ));
-                        if($rsCancelOrders->count()==0){
-                            Product::where('id',$productID)->increment('qty', (int) $item->quantity);///qty
+                        if ($rsCancelOrders->count() == 0) {
+                            Product::where('id', $productID)->increment('qty', (int) $item->quantity); ///qty
                             $objCancelOrders = new CancelOrders();
                             $cancelQtyArray = array(
-                                'product_id'=>$item->product_id,
-                                'sale_id'=>$sale_id
+                                'product_id' => $item->product_id,
+                                'sale_id' => $sale_id
                             );
                             $objCancelOrders->fill($cancelQtyArray);
                             $objCancelOrders->save();
                         }
-                        
                     }
                     $metaData = $order->meta_data;
                     $newObj = new CommonClass();
@@ -317,7 +320,7 @@ class OrdersController extends BaseController
                     $trackingNO = '';
                     if ($metaData) {
                         foreach ($metaData as $data) {
-                             
+
                             if (isset($data->key) && $data->key == '_dvs_courier_list' && isset($data->value) && $data->value != '') {
                                 $key = array_search($data->value, $couriersArray);
                                 if ($key == false) {
@@ -336,16 +339,16 @@ class OrdersController extends BaseController
                                         $courier_id = $objCourier->save();
                                     } else {
                                         $rowCourier = $rsCourier->first();
-                                        $courier_id =  $rowCourier->id;
-                                    }                                                                                                           
+                                        $courier_id = $rowCourier->id;
+                                    }
                                 }
                             }
                             if (isset($data->key) && $data->key == '_dvs_courier_tracking' && isset($data->value) && $data->value != '') {
-                                $trackingNO = $data->value;                                        
+                                $trackingNO = $data->value;
                             }
                         }
-                        if ($courier_id!="") {
-                            $commonObj->AddDeliveryRecord($order->id, $reference_no, $courier_id,1,$trackingNO);
+                        if ($courier_id != "") {
+                            $commonObj->AddDeliveryRecord($order->id, $reference_no, $courier_id, 1, $trackingNO);
                         }
                     }
                 }
@@ -354,15 +357,16 @@ class OrdersController extends BaseController
             //$sale_id  = Sale::create($saleData);
 
             return response()->json([
-                'status' => 'success',
-                'message' => 'order has been saved succssfully'
-            ], 200);
+                        'status' => 'success',
+                        'message' => 'order has been saved succssfully'
+                            ], 200);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
             return response()->json([
-                'status' => 'Exception',
-                'message' => $e->getMessage(),
-            ], 500);
+                        'status' => 'Exception',
+                        'message' => $e->getMessage(),
+                            ], 500);
         }
     }
+
 }

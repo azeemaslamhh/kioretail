@@ -363,7 +363,8 @@ class ProductController extends Controller
             $data['is_sync_disable'] = null;
 
         $data['category_id'] = NULL;
-
+        Log::info("Product Data");
+        Log::info(print_r($data,true));
         $lims_product_data = Product::create($data);
         if (count($category_ids) > 0) {
             foreach ($category_ids as $categoryID) {

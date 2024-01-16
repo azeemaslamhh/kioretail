@@ -134,7 +134,7 @@ class SyncOrders extends Command
                     $shipment_address = '';
                     foreach ($orderData as $order) {
                         $date2 = date("Y-m-d H:i:s", strtotime($order->date_created));
-                        $oneMonthAgo = '2023-12-15 24:59:29';
+                        $oneMonthAgo = '2023-12-31 24:59:29';
                         if ($date2 >= $oneMonthAgo) {
 
 
@@ -143,37 +143,43 @@ class SyncOrders extends Command
                             Log::info(print_r($billingObj,true));
                             Log::info("-----------end-------");
                             */
-                            $billing_id = 0;
+                            $billing_id = 1;
+                            $customer_id = 0;
                             if ($billingObj != null) {
                                 
-                                if ($billingObj->phone) {
-                                    
-                                    $shipment_address =  $billingObj->address_1;
-                                    $billerData = array(
-                                        'name' => $billingObj->first_name . ' ' . $billingObj->last_name,
-                                        'company_name' => $billingObj->company,
-                                        'address' => $billingObj->address_1,
-                                        'city' => $billingObj->city,
-                                        'state' => $billingObj->state,
-                                        'postal_code' => $billingObj->postcode,
-                                        'country' => $billingObj->country,
-                                        'email' => $billingObj->email,
-                                        'phone_number' => $billingObj->phone,
-                                    );
-
-                                    $rsBilling = Biller::where("phone_number", $billingObj->phone);
-                                    if ($rsBilling->count() > 0) {
-                                        $billingRow = $rsBilling->first();
-                                        $objBiller = Biller::find($billingRow->id);
-                                        $objBiller->fill($billerData);
-                                        $objBiller->save();
-                                        $billing_id = $billingRow->id;
-                                        //insertGetId
-                                    }else{                                        
-                                        $billing_id = DB::table('billers')->insertGetId($billerData);
+                                if ($order->customer_id > 0) {
+                                    $resultCustom = Customer::where('woocommerce_customer_id', $order->customer_id);
+                                    if ($resultCustom->count() > 0) {
+                                        $customer_id = $resultCustom->value('id');
                                     }
-                                    
-                                    
+                                } else {
+                                    if ($billingObj->phone) {
+                                        $shipment_address = $billingObj->address_1;
+                                        $data = array(
+                                            'customer_group_id' => 1,
+                                            'user_id' => 1,
+                                            'name' => $billingObj->first_name . ' ' . $billingObj->last_name,
+                                            'company_name' => $billingObj->company,
+                                            'email' => $billingObj->email,
+                                            'phone_number' => $billingObj->phone,
+                                            'address' => $shipment_address,
+                                            'city' => $billingObj->city,
+                                            'state' => $billingObj->state,
+                                            'postal_code' => $billingObj->postcode,
+                                            'country' => $billingObj->country,
+                                            'is_active' => 1,
+                                        );
+                                        $resultCustom = Customer::where('phone_number', $billingObj->phone);
+                                        if ($resultCustom->count() > 0) {
+                                            $row = $resultCustom->first();
+                                            $objCustomer = Customer::find($row->id);
+                                            $objCustomer->fill($data);
+                                            $objCustomer->save();
+                                            $customer_id = $row->id;
+                                        } else {
+                                            $customer_id = DB::table('customers')->insertGetId($data);
+                                        }
+                                    }
                                 }
                                 
                                 //Log::info("save billingt");
@@ -213,7 +219,7 @@ class SyncOrders extends Command
                             $OrderData = array(
                                 'reference_no' => $reference_no,
                                 'user_id' => 1,
-                                'customer_id' => $order->customer_id,
+                                'customer_id' => $customer_id,
                                 'total_qty' => $total_qty,
                                 'total_tax' => $total_tax,
                                 'total_price' => $total_price,

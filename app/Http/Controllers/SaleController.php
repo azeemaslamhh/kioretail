@@ -2112,11 +2112,13 @@ class SaleController extends Controller
             $data['document'] = $documentName;
         }
         $balance = $data['grand_total'] - $data['paid_amount'];
+        
+        /*
         if ($balance < 0 || $balance > 0)
             $data['payment_status'] = 2;
         else
             $data['payment_status'] = 4;
-
+        */
         $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
         $data['created_at'] = date("Y-m-d", strtotime(str_replace("/", "-", $data['created_at'])));
         $product_id = $data['product_id'];

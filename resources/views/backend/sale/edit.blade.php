@@ -45,7 +45,7 @@
                                             <input type="hidden" name="warehouse_id_hidden" value="{{$lims_sale_data->warehouse_id}}" />
                                             <select required id="warehouse_id" name="warehouse_id" class="selectpicker form-control" data-live-search="true" data-live-search-style="begins" title="Select warehouse...">
                                                 @foreach($lims_warehouse_list as $warehouse)
-                                                <option value="{{$warehouse->id}}">{{$warehouse->name}}</option>
+                                                <option @if($lims_sale_data->warehouse_id==$warehouse->id) checked @endif value="{{$warehouse->id}}">{{$warehouse->name}}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -56,7 +56,7 @@
                                             <input type="hidden" name="biller_id_hidden" value="{{$lims_sale_data->biller_id}}" />
                                             <select required name="biller_id" class="selectpicker form-control" data-live-search="true" data-live-search-style="begins" title="Select Biller...">
                                                 @foreach($lims_biller_list as $biller)
-                                                <option value="{{$biller->id}}">{{$biller->name . ' (' . $biller->company_name . ')'}}</option>
+                                                <option @if($lims_sale_data->biller_id==$biller->id) checked @endif value="{{$biller->id}}">{{$biller->name . ' (' . $biller->company_name . ')'}}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -403,6 +403,18 @@
                                         </div>
                                     </div>
                                     @endif
+
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label>Is Shipping Free *</label><br>                                                                                <label class="radio-inline">
+                                            <input @if($lims_sale_data->is_shipping_free==1) checked @endif type="radio" name="is_shipping_free" id="is_shipping_free" value="1"> Yes</label>
+                                            <label class="radio-inline">
+                                                <input @if($lims_sale_data->is_shipping_free==0) checked @endif  type="radio" name="is_shipping_free" id="is_shipping_free2" value="0"> No
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label>{{trans('file.Sale Note')}}</label>

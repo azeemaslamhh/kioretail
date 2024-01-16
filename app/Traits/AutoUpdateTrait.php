@@ -62,17 +62,17 @@ trait AutoUpdateTrait{
         };
 
         $data = $this->getDemoGeneralDataByCURL();
-        $productMode = $data->general->product_mode;
+        $productMode = (isset($data->general->product_mode))? $data->general->product_mode:'';
         $clientVersionNumber = config('auto_update.version');
-        $demoVersionNumber = $data->general->demo_version;
-        $minimumRequiredVersion = $data->general->minimum_required_version;
+        $demoVersionNumber = '4.2.0'; //$data->general->demo_version;
+        $minimumRequiredVersion = '3.7.9'; //$data->general->minimum_required_version;
 
         $isVersionGreater = $this->compareVersionNumber($clientVersionNumber, $demoVersionNumber);
         if($minimumRequiredVersion == $clientVersionNumber)
             $isVersionMinimum = true;
         else
             $isVersionMinimum = $this->compareVersionNumber($minimumRequiredVersion, $clientVersionNumber);
-        $latestVersionUpgradeEnable = $data->general->latest_version_upgrade_enable;
+        $latestVersionUpgradeEnable = true; //$data->general->latest_version_upgrade_enable;
 
         if ($isVersionMinimum && $latestVersionUpgradeEnable===true && $productMode==='DEMO' && $isVersionGreater) {
             $alertVersionUpgradeEnable = true;

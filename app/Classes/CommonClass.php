@@ -281,7 +281,8 @@ class CommonClass
         //echo "<br />-----------start_date==".$start_date;
         //echo "<br / >end_date==".$end_date; exit;
 
-        $result = sale::join('deliveries', 'sales.id', 'deliveries.sale_id')->where('deliveries.courier_id', $courier_id);
+        //$result = sale::join('deliveries', 'sales.id', 'deliveries.sale_id')->where('deliveries.courier_id', $courier_id);
+        $result = DB::table('sales')->join('deliveries', 'sales.id', 'deliveries.sale_id')->where('deliveries.courier_id', $courier_id);
         //echo '<br / >'.$courier_id;
         if ($start_date != "") {
             $start_date = date("Y-m-d", strtotime($start_date));
@@ -310,7 +311,7 @@ class CommonClass
 
 
         if ($result->count() > 0) {
-            $saleRow = $result->select(DB::raw('sum(sales.grand_total) as total_sale_amount, count(sales.id) as total_sale_count, sum(paid_amount) as paid_amount , sum(shipping_cost) as shipping_cost'))->first();
+            $saleRow = $result->select(DB::raw('sum(sales.grand_total) as total_sale_amount, count(sales.id) as total_sale_count, sum(sales.paid_amount) as paid_amount , sum(sales.shipping_cost) as shipping_cost'))->first();
             //select(DB::raw('sum(sales.grand_total) as total_sale_amount, count(sales.id) as total_sale_count, sum(paid_amount) as paid_amount')->first()->toArray();
             $totalSaleCount = $saleRow->total_sale_count;
             $totalSaleamount = $saleRow->total_sale_amount;
@@ -318,8 +319,8 @@ class CommonClass
             $shipping_cost = $saleRow->shipping_cost;
         }
 
-        $shipping_cost = $result2->where('sales.is_shipping_free')->sum('sales.shipping_cost');
-
+        $shipping_cost = $result2->sum('sales.shipping_cost');
+        //Log::info("shipping_cost:".$result2->where('sales.is_shipping_free',0)->toSql());
         $product_cost = $this->calculateAverageCOGS($courier_id, $start_date, $end_date ,$courier_status);
         $profit = 0;
         if ($totalSaleamount > 0) {
