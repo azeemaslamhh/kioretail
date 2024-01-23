@@ -1189,6 +1189,15 @@ class RoleController extends Controller
         }
         else
             $role->revokePermissionTo('dso-report');
+        
+        if($request->has('import_couriers_fee')) {
+            $permission = Permission::firstOrCreate(['name' => 'import_couriers_fee']);
+            if(!$role->hasPermissionTo('import_couriers_fee')){
+                $role->givePermissionTo($permission);
+            }
+        }
+        else
+            $role->revokePermissionTo('import_couriers_fee');
 
         if($request->has('custom_field')) {
             $permission = Permission::firstOrCreate(['name' => 'custom_field']);

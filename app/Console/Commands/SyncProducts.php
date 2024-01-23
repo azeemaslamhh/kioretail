@@ -42,6 +42,7 @@ class SyncProducts extends Command
      */
     public function handle()
     {
+        Log::info('sync:products start');
         $woocommerce_setting = WoocommerceSetting::latest()->first();
         $this->woocommerce = $this->woocommerceApi($woocommerce_setting);
         if ($this->woocommerce != null) {
@@ -169,8 +170,8 @@ class SyncProducts extends Command
                     }
                     //$objProduct->fill($data);
                     //$product_id = $objProduct->save();
-                    Log::info('==product_id:' . $product_id);
-                    Log::info('==sku:' . $product->sku);
+                    //Log::info('==product_id:' . $product_id);
+                    //Log::info('==sku:' . $product->sku);
                     //Log::info(print_r($product->categories, true));
                     //exit;
 
@@ -246,7 +247,7 @@ class SyncProducts extends Command
                         }
                         $image = implode(",", $files);
                         Product::where('id', $product_id)->update(array('image' => $image));
-                        Log::info("product id:" . $product_id);
+                        //Log::info("product id:" . $product_id);
                     }
                 }
                 //\Illuminate\Support\Facades\Log::info(print_r($products,true));

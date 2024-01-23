@@ -218,6 +218,15 @@
                                         <input type="text" name="developed_by" class="form-control" value="{{$lims_general_setting_data->developed_by}}">
                                     </div>
                                 </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label>Is Shipping Free *</label><br>                                                                                <label class="radio-inline">
+                                        <input @if($lims_general_setting_data->is_shipping_free==1) checked @endif type="radio" name="is_shipping_free" id="is_shipping_free" value="1"> Yes</label>
+                                        <label class="radio-inline">
+                                            <input @if($lims_general_setting_data->is_shipping_free==0) checked @endif  type="radio" name="is_shipping_free" id="is_shipping_free2" value="0"> No
+                                        </label>
+                                    </div>
+                                </div>
                                 @if(config('database.connections.saleprosaas_landlord'))
                                     <br>
                                     <div class="col-md-2">

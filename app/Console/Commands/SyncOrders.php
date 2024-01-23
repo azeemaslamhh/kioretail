@@ -21,6 +21,7 @@ use App\Models\Delivery;
 use App\Classes\CommonClass;
 use App\Models\Product;
 use App\Models\CancelOrders;
+use App\Models\GeneralSetting;
 
 class SyncOrders extends Command
 {
@@ -73,7 +74,7 @@ class SyncOrders extends Command
         }
         exit;
         */
-        
+        Log::info('sync:orders start');
         $woocommerce_setting = WoocommerceSetting::latest()->first();
         $this->woocommerce = $this->woocommerceApi($woocommerce_setting);
         if ($this->woocommerce != null) {  //sync customers
@@ -134,7 +135,7 @@ class SyncOrders extends Command
                     $shipment_address = '';
                     foreach ($orderData as $order) {
                         $date2 = date("Y-m-d H:i:s", strtotime($order->date_created));
-                        $oneMonthAgo = '2023-12-31 24:59:29';
+                        $oneMonthAgo = '2023-01-15 24:59:29';
                         if ($date2 >= $oneMonthAgo) {
 
 
@@ -216,6 +217,8 @@ class SyncOrders extends Command
                             $date_modified = date("Y-m-d H:i:s", strtotime($order->date_modified));
                             $reference_no  = 'sr-' . date("Ymd") . '-' . time();
                             $orderInsert  = 0 ;
+                            $general_setting_data = GeneralSetting::latest()->first();
+                            $is_shipping_free = $general_setting_data->is_shipping_free;
                             $OrderData = array(
                                 'reference_no' => $reference_no,
                                 'user_id' => 1,
@@ -228,22 +231,24 @@ class SyncOrders extends Command
                                 'biller_id' => $billing_id,
                                 'total_discount' => 0,
                                 'item' => $itemCount,                                
-                                'payment_status' => ($order->status == 'completed') ? 4 : 1,
+                                //'payment_status' => ($order->status == 'completed') ? 4 : 1,
                                 'shipping_cost' => $order->shipping_total,
                                 'woocommerce_order_id' => $order->id,
+                                'is_shipping_free' => $is_shipping_free,
                                 'created_at' => $date_created,
                                 'updated_at' => $date_modified
                             );
                             $rsSale = Sale::where('woocommerce_order_id', $order->id);
                             if ($rsSale->count() > 0) {
+                                
                                 $saleRow = $rsSale->first();
                                 //$objsale = Sale::find($saleRow->id);
                                 DB::table('sales')->where('id', $saleRow->id)->update($OrderData);
                                 $sale_id = $saleRow->id;
                             } else {
                                 //$objsale = new Sale();
-                                
-                                $OrderData['sale_status'] = 2;
+                                $OrderData['payment_status'] =1;
+                                $OrderData['sale_status'] = 2;                                                               
                                 $sale_id = DB::table('sales')->insertGetId($OrderData);
                                 $orderInsert  = 1 ;
                             }

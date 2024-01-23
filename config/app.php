@@ -230,5 +230,6 @@ return [
         'Keygen' => Keygen\Keygen::class,
         'Debugbar' => Barryvdh\Debugbar\Facades\Debugbar::class,
     ],
+    'upload_courier_file' => base_path() . '/storage/couriers-fee-csv',
 
 ];

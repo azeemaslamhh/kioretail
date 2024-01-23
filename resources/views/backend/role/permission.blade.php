@@ -1606,6 +1606,24 @@
 						                </span>
 						            </td>
 						        </tr>
+                                                        <tr>
+                                                            <td>Import Couriers Fee</td>
+                                                            <td>
+                                                                <span>
+						                    <div aria-checked="false" aria-disabled="false">
+								                <div class="checkbox">
+                                                                                    @if(in_array("import_couriers_fee", $all_permission))
+                                                                                    <input type="checkbox" value="1" id="import_couriers_fee" name="import_couriers_fee" checked="">
+                                                                                    @else
+                                                                                    <input type="checkbox" value="1" id="import_couriers_fee" name="import_couriers_fee">    
+                                                                                    @endif
+                                                                                    <label for="import_couriers_fee" class="padding05">Import couriers fee &nbsp;&nbsp;</label>
+								                </div>
+								            </div>
+						                </span>
+                                                                
+                                                            </td>
+                                                        </tr>
 						        </tbody>
 						    </table>
 						</div>

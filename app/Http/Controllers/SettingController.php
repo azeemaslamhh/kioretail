@@ -120,6 +120,8 @@ class SettingController extends Controller
         $general_setting->developed_by = $data['developed_by'];
         $general_setting->invoice_format = $data['invoice_format'];
         $general_setting->state = $data['state'];
+        $general_setting->is_shipping_free = $data['is_shipping_free'];
+        
         $logo = $request->site_logo;
         if ($logo) {
             $this->fileDelete('logo/', $general_setting->site_logo);

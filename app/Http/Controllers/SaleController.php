@@ -64,14 +64,15 @@ use Salla\ZATCA\Tags\Seller;
 use Salla\ZATCA\Tags\TaxNumber;
 use Illuminate\Support\Facades\Log;
 use App\Classes\CommonClass;
+use App\Models\ImportOrderFeeFiles;
+use App\Models\Tasks;
 
-class SaleController extends Controller
-{
+class SaleController extends Controller {
+
     use \App\Traits\TenantInfo;
     use \App\Traits\MailInfo;
 
-    public function indexold(Request $request)
-    {
+    public function indexold(Request $request) {
         $role = Role::find(Auth::user()->role_id);
         if ($role->hasPermissionTo('sales-index')) {
             $permissions = Role::findByName($role->name)->permissions;
@@ -115,9 +116,9 @@ class SaleController extends Controller
                 $options = [];
             $numberOfInvoice = Sale::count();
             $custom_fields = CustomField::where([
-                ['belongs_to', 'sale'],
-                ['is_table', true]
-            ])->pluck('name');
+                        ['belongs_to', 'sale'],
+                        ['is_table', true]
+                    ])->pluck('name');
             $field_name = [];
             foreach ($custom_fields as $fieldName) {
                 $field_name[] = str_replace(" ", "_", strtolower($fieldName));
@@ -127,9 +128,7 @@ class SaleController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
-
-    public function index(Request $request)
-    {
+    public function index(Request $request) {
         $role = Role::find(Auth::user()->role_id);
         if ($role->hasPermissionTo('sales-index')) {
             $permissions = Role::findByName($role->name)->permissions;
@@ -173,9 +172,9 @@ class SaleController extends Controller
                 $options = [];
             $numberOfInvoice = Sale::count();
             $custom_fields = CustomField::where([
-                ['belongs_to', 'sale'],
-                ['is_table', true]
-            ])->pluck('name');
+                        ['belongs_to', 'sale'],
+                        ['is_table', true]
+                    ])->pluck('name');
             $field_name = [];
             foreach ($custom_fields as $fieldName) {
                 $field_name[] = str_replace(" ", "_", strtolower($fieldName));
@@ -185,21 +184,21 @@ class SaleController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
-    public function getAllSales(Request $request)
-    {
+    public function getAllSales(Request $request) {
 
         $warehouse_id = $request->input('warehouse_id');
         $sale_status = $request->input('sale_status');
         $payment_status = $request->input('payment_status');
-        if($request->input('starting_date')) {
-            $starting_date = $request->input('starting_date');            
+        $delivery_status = $request->input('delivery_status');
+        if ($request->input('starting_date')) {
+            $starting_date = $request->input('starting_date');
         }
-        if($request->input('ending_date')) {
-         
+        if ($request->input('ending_date')) {
+
             $ending_date = $request->input('ending_date');
         }
         ///Log::info(print_r($request->all(),true));
-        
+
 
         $role = Role::find(Auth::user()->role_id);
         $permissions = Role::findByName($role->name)->permissions;
@@ -208,46 +207,55 @@ class SaleController extends Controller
 
         ///$search = $request->input('search.value');
 
-        $aColumns = ['sales.woocommerce_order_id', 'deliveries.booking_date', 'sales.reference_no', 'couriers.name', 'billers.phone_number', 'billers.name', 'sales.payment_status', 'deliveries.status', 'sales.grand_total', '', 'sales.paid_amount'];
+        $aColumns = ['sales.woocommerce_order_id', 'sales.created_at', 'deliveries.booking_date', 'sales.reference_no', 'couriers.name', 'billers.phone_number', 'billers.name', 'sales.payment_status', 'deliveries.status', 'sales.grand_total', '', 'sales.paid_amount'];
         $result = DB::table('sales')
-            //->leftjoin('customers', 'sales.customer_id', '=', 'customers.id')
-            ->leftjoin('deliveries', 'sales.id', '=', 'deliveries.sale_id')
-            ->leftjoin('billers', 'sales.biller_id', '=', 'billers.id')            
-            ->leftjoin('couriers', 'deliveries.courier_id', '=', 'couriers.id')
-            ->leftjoin('warehouses', 'sales.warehouse_id', '=', 'warehouses.id')
-            ->select(['sales.id', 'deliveries.booking_date', 'sales.reference_no', 'couriers.name as courier_name', 'billers.phone_number as biller_phone_number', 'billers.name', 'sales.payment_status', 'deliveries.status', 'sales.grand_total', 'sales.paid_amount','sales.sale_status','sales.woocommerce_order_id','deliveries.courier_id']);
+                //->leftjoin('customers', 'sales.customer_id', '=', 'customers.id')
+                ->leftjoin('deliveries', 'sales.id', '=', 'deliveries.sale_id')
+                ->leftjoin('billers', 'sales.biller_id', '=', 'billers.id')
+                ->leftjoin('couriers', 'deliveries.courier_id', '=', 'couriers.id')
+                ->leftjoin('warehouses', 'sales.warehouse_id', '=', 'warehouses.id')
+                ->select(['sales.id', 'sales.created_at', 'deliveries.booking_date', 'sales.reference_no', 'couriers.name as courier_name', 'billers.phone_number as biller_phone_number', 'billers.name', 'sales.payment_status', 'deliveries.status', 'sales.grand_total', 'sales.paid_amount', 'sales.sale_status', 'sales.woocommerce_order_id', 'deliveries.courier_id']);
 
         if (Auth::user()->role_id > 2 && config('staff_access') == 'own')
             $result->where('sales.user_id', Auth::id());
 
-        
+
         if ($payment_status)
             $result->where('sales.payment_status', $payment_status);
+
+        if ($delivery_status) {
+            if ($delivery_status >0)
+                $result->where('deliveries.status', $delivery_status);
+            else {
+                $result->whereNull('deliveries.status');
+            }
+        }
+
+
         if ($warehouse_id)
             $result->where('sales.warehouse_id', $warehouse_id);
 
-        if($starting_date){
-            $result->where('deliveries.booking_date','>=',$starting_date);
+        if ($starting_date) {
+            $result->where('sales.created_at', '>=', $starting_date);
         }
-        if($starting_date){
-            $result->where('deliveries.booking_date','<=',$ending_date);
+        if ($starting_date) {
+            $result->where('sales.created_at', '<=', $ending_date);
         }
 
-     
 
-        if($sale_status){
-            if($sale_status==1){
-                $result->where('sales.sale_status', $sale_status)->where('sales.payment_status',4);
-            }else{
+
+        if ($sale_status) {
+            if ($sale_status == 1) {
+                $result->where('sales.sale_status', $sale_status)->where('sales.payment_status', 4);
+            } else {
                 $result->where('sales.sale_status', $sale_status);
             }
-            
-        }            
-        if($payment_status)
+        }
+        if ($payment_status)
             $result->where('sales.payment_status', $payment_status);
 
-           // Log::info(print_r($request->all(),true));
-           // Log::info($result->tosql());    
+        // Log::info(print_r($request->all(),true));
+        // Log::info($result->tosql());    
 
         $iStart = $request->get('iDisplayStart');
         $iPageSize = $request->get('iDisplayLength');
@@ -274,7 +282,7 @@ class SaleController extends Controller
             //$aColumns = ['sales.id', 'sales.created_at', 'sales.reference_no', 'couriers.name', 'customers.name','sales.sale_status','sales.payment_status','deliveries.status','sales.grand_total'];
             $result->Where(function ($query) use ($sKeywords) {
                 $query->orWhere('sales.id', 'LIKE', "%{$sKeywords}%")->orWhere('sales.reference_no', 'LIKE', "%{$sKeywords}%")
-                    ->orWhere('couriers.name', 'LIKE', "%{$sKeywords}%")->orWhere('billers.phone_number', 'LIKE', "%{$sKeywords}%")->orWhere('sales.grand_total', 'LIKE', "%{$sKeywords}%")->orWhere('billers.name', 'LIKE', "%{$sKeywords}%")->orWhere('sales.woocommerce_order_id', 'LIKE', "%{$sKeywords}%"); //billers.name
+                        ->orWhere('couriers.name', 'LIKE', "%{$sKeywords}%")->orWhere('billers.phone_number', 'LIKE', "%{$sKeywords}%")->orWhere('sales.grand_total', 'LIKE', "%{$sKeywords}%")->orWhere('billers.name', 'LIKE', "%{$sKeywords}%")->orWhere('sales.woocommerce_order_id', 'LIKE', "%{$sKeywords}%"); //billers.name
             });
         }
 
@@ -291,10 +299,10 @@ class SaleController extends Controller
         if ($iStart != null && $iPageSize != '-1') {
             $result->skip($iStart)->take($iPageSize);
         }
-        /*echo '<pre>';
-        print_r($OrderArray);
-        exit;
-        */
+        /* echo '<pre>';
+          print_r($OrderArray);
+          exit;
+         */
 
         $order = trim($OrderArray[3]);
         $sort = trim($OrderArray[4]);
@@ -311,28 +319,27 @@ class SaleController extends Controller
         foreach ($salesData as $aRow) {
             $id = $aRow->id;
             //['sales.id', 'sales.created_at', 'sales.reference_no', 'couriers.name as courier_name', 'customers.name as customer_name','sales.sale_status','sales.payment_status','deliveries.status','sales.grand_total']
-            $created_at = date("M j, Y, g:i a", strtotime($aRow->booking_date));
-
-
+            $booking_date = (!empty($aRow->booking_date)) ? date("M j, Y, g:i a", strtotime($aRow->booking_date)) : "";
+            $created_at = date("M j, Y, g:i a", strtotime($aRow->created_at));
 
             /*
-            if ($aRow->sale_status == 1 && $aRow->payment_status == 4) {
-                $sale_status = '<div class="badge badge-success">' . trans('file.Completed') . '</div>';
-            } 
-            
-            elseif ($aRow->sale_status == 2) {
-                $sale_status = '<div class="badge badge-danger">' . trans('file.Pending') . '</div>';
-                //$sale_status = trans('file.Pending');
-            } 
-            
-            else {
-                //$sale_status = '<div class="badge badge-warning">' . trans('file.Draft') . '</div>';
-                //$sale_status = trans('file.Draft');
-                $sale_status = '<div class="badge badge-danger">' . trans('file.Pending') . '</div>';
-            }*/
+              if ($aRow->sale_status == 1 && $aRow->payment_status == 4) {
+              $sale_status = '<div class="badge badge-success">' . trans('file.Completed') . '</div>';
+              }
+
+              elseif ($aRow->sale_status == 2) {
+              $sale_status = '<div class="badge badge-danger">' . trans('file.Pending') . '</div>';
+              //$sale_status = trans('file.Pending');
+              }
+
+              else {
+              //$sale_status = '<div class="badge badge-warning">' . trans('file.Draft') . '</div>';
+              //$sale_status = trans('file.Draft');
+              $sale_status = '<div class="badge badge-danger">' . trans('file.Pending') . '</div>';
+              } */
 
             if ($aRow->payment_status == 1) {
-                $payment_status  = '<div class="badge badge-danger">' . trans('file.Pending') . '</div>';
+                $payment_status = '<div class="badge badge-danger">' . trans('file.Pending') . '</div>';
             } elseif ($aRow->payment_status == 2) {
                 $payment_status = '<div class="badge badge-danger">' . trans('file.Due') . '</div>';
             } elseif ($aRow->payment_status == 3) {
@@ -341,7 +348,7 @@ class SaleController extends Controller
                 $payment_status = '<div class="badge badge-success">' . trans('file.Paid') . '</div>';
                 $sale_status = '<div class="badge badge-success">' . trans('file.Completed') . '</div>';
             } else {
-                $payment_status = '<div class="badge badge-warning">Processing</div>';                
+                $payment_status = '<div class="badge badge-warning">Processing</div>';
             }
 
 
@@ -352,13 +359,15 @@ class SaleController extends Controller
                     $delivery_status = '<div class="badge badge-info">' . trans('file.Delivering') . '</div>';
                 elseif ($aRow->status == 3)
                     $delivery_status = '<div class="badge badge-info">' . trans('file.Delivered') . '</div>';
+                elseif ($aRow->status == 5)
+                    $delivery_status = '<div class="badge badge-info">Canceled</div>';
             } else {
                 $delivery_status = '<div class="badge badge-info">Processing</div>';
             }
 
-            /*if ($aRow->sale_status != 1) {
-                $delivery_status = 'N/A';
-            }*/
+            /* if ($aRow->sale_status != 1) {
+              $delivery_status = 'N/A';
+              } */
 
             $sOptions = '<div class="btn-group">
                             <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">' . trans("file.action") . '
@@ -370,14 +379,14 @@ class SaleController extends Controller
                                 <li>
                                     <button type="button" class="btn btn-link view" data="' . $id . '"><i class="fa fa-eye"></i> ' . trans('file.View') . '</button>
                                 </li>';
-            if($aRow->courier_id==3){
+            if ($aRow->courier_id == 3) {
                 $sOptions .= ' <li>
-                <button type="button" class="btn btn-link getLeopardReport" data="' . $aRow->woocommerce_order_id. '"><i class="fa fa-eye"></i> Get Payment Status</button> </li>';
+                <button type="button" class="btn btn-link getLeopardReport" data="' . $aRow->woocommerce_order_id . '"><i class="fa fa-eye"></i> Get Payment Status</button> </li>';
                 $sOptions .= ' <li>
-                <button type="button" class="btn btn-link getLeopardDeliveryReport" data="' . $aRow->woocommerce_order_id. '"><i class="fa fa-eye"></i> Get Delivery Status</button> </li>';
+                <button type="button" class="btn btn-link getLeopardDeliveryReport" data="' . $aRow->woocommerce_order_id . '"><i class="fa fa-eye"></i> Get Delivery Status</button> </li>';
                 //getLeopardDeliveryReport
             }
-                                //getLeopardReport
+            //getLeopardReport
             if (in_array("sales-edit", $all_permission)) {
                 if ($aRow->sale_status != 3)
                     $sOptions .= '<li>
@@ -389,18 +398,15 @@ class SaleController extends Controller
                         </li>';
             }
             if (in_array("sale-payment-index", $all_permission))
-                $sOptions .=
-                    '<li>
+                $sOptions .= '<li>
                             <button type="button" class="get-payment btn btn-link" data-id = "' . $id . '"><i class="fa fa-money"></i> ' . trans('file.View Payment') . '</button>
                         </li>';
             if (in_array("sale-payment-add", $all_permission))
-                $sOptions .=
-                    '<li>
+                $sOptions .= '<li>
                             <button type="button" class="add-payment btn btn-link" data-id = "' . $id . '" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i> ' . trans('file.Add Payment') . '</button>
                         </li>';
 
-            $sOptions .=
-                '<li>
+            $sOptions .= '<li>
                         <button type="button" class="add-delivery btn btn-link" data-id = "' . $id . '"><i class="fa fa-truck"></i> ' . trans('file.Add Delivery') . '</button>
                     </li>';
             if (in_array("sales-delete", $all_permission))
@@ -419,6 +425,7 @@ class SaleController extends Controller
             $output['aaData'][] = array(
                 $aRow->woocommerce_order_id,
                 @utf8_encode($created_at),
+                @utf8_encode($booking_date),
                 @utf8_encode($aRow->reference_no),
                 @utf8_encode($aRow->courier_name),
                 @utf8_encode($aRow->biller_phone_number),
@@ -437,8 +444,7 @@ class SaleController extends Controller
         echo json_encode($output);
     }
 
-    public function saleData(Request $request)
-    {
+    public function saleData(Request $request) {
         $columns = array(
             1 => 'created_at',
             2 => 'reference_no',
@@ -471,20 +477,20 @@ class SaleController extends Controller
         $dir = $request->input('order.0.dir');
         //fetching custom fields data
         $custom_fields = CustomField::where([
-            ['belongs_to', 'sale'],
-            ['is_table', true]
-        ])->pluck('name');
+                    ['belongs_to', 'sale'],
+                    ['is_table', true]
+                ])->pluck('name');
         $field_names = [];
         foreach ($custom_fields as $fieldName) {
             $field_names[] = str_replace(" ", "_", strtolower($fieldName));
         }
         if (empty($request->input('search.value'))) {
             $q = Sale::with('biller', 'customer', 'warehouse', 'user')
-                ->whereDate('created_at', '>=', $request->input('starting_date'))
-                ->whereDate('created_at', '<=', $request->input('ending_date'))
-                ->offset($start)
-                ->limit($limit)
-                ->orderBy($order, $dir);
+                    ->whereDate('created_at', '>=', $request->input('starting_date'))
+                    ->whereDate('created_at', '<=', $request->input('ending_date'))
+                    ->offset($start)
+                    ->limit($limit)
+                    ->orderBy($order, $dir);
             if (Auth::user()->role_id > 2 && config('staff_access') == 'own')
                 $q = $q->where('user_id', Auth::id());
             if ($warehouse_id)
@@ -498,33 +504,33 @@ class SaleController extends Controller
             //warehouse_name
             $search = $request->input('search.value');
             $q = Sale::join('customers', 'sales.customer_id', '=', 'customers.id')
-                ->join('billers', 'sales.biller_id', '=', 'billers.id')
-                ->join('users', 'sales.user_id', '=', 'users.id')
-                ->join('warehouses', 'sales.warehouse_id', '=', 'warehouses.id')
-                ->whereDate('sales.created_at', '=', date('Y-m-d', strtotime(str_replace('/', '-', $search))))
-                ->offset($start)
-                ->limit($limit)
-                ->orderBy($order, $dir);
+                    ->join('billers', 'sales.biller_id', '=', 'billers.id')
+                    ->join('users', 'sales.user_id', '=', 'users.id')
+                    ->join('warehouses', 'sales.warehouse_id', '=', 'warehouses.id')
+                    ->whereDate('sales.created_at', '=', date('Y-m-d', strtotime(str_replace('/', '-', $search))))
+                    ->offset($start)
+                    ->limit($limit)
+                    ->orderBy($order, $dir);
             if (Auth::user()->role_id > 2 && config('staff_access') == 'own') {
                 $q = $q->select('sales.*', 'customers.name as customer_name', 'customers.phone_number as customer_phone_number', 'customers.deposit', 'customers.expense', 'customers.points', 'customers.name as customer_name', 'customers.address as customer_address', 'customers.city as customer_city', 'biller.name as biller_name', 'biller.company_name as biller_company_name', 'biller.email as biller_email', 'biller.phone_number as biller_phone_number', 'biller.address as biller_address', 'biller.city as biller_city', 'users.name as user_name', 'users.user_email', 'warehouses.name as warehouse_name')
-                    ->with('biller', 'customer', 'warehouse', 'user')
-                    ->where('sales.user_id', Auth::id())
-                    ->orwhere([
-                        ['sales.reference_no', 'LIKE', "%{$search}%"],
-                        ['sales.user_id', Auth::id()]
-                    ])
-                    ->orwhere([
-                        ['customers.name', 'LIKE', "%{$search}%"],
-                        ['sales.user_id', Auth::id()]
-                    ])
-                    ->orwhere([
-                        ['customers.phone_number', 'LIKE', "%{$search}%"],
-                        ['sales.user_id', Auth::id()]
-                    ])
-                    ->orwhere([
-                        ['billers.name', 'LIKE', "%{$search}%"],
-                        ['sales.user_id', Auth::id()]
-                    ]);
+                        ->with('biller', 'customer', 'warehouse', 'user')
+                        ->where('sales.user_id', Auth::id())
+                        ->orwhere([
+                            ['sales.reference_no', 'LIKE', "%{$search}%"],
+                            ['sales.user_id', Auth::id()]
+                        ])
+                        ->orwhere([
+                            ['customers.name', 'LIKE', "%{$search}%"],
+                            ['sales.user_id', Auth::id()]
+                        ])
+                        ->orwhere([
+                            ['customers.phone_number', 'LIKE', "%{$search}%"],
+                            ['sales.user_id', Auth::id()]
+                        ])
+                        ->orwhere([
+                    ['billers.name', 'LIKE', "%{$search}%"],
+                    ['sales.user_id', Auth::id()]
+                ]);
                 foreach ($field_names as $key => $field_name) {
                     $q = $q->orwhere([
                         ['sales.user_id', Auth::id()],
@@ -535,11 +541,11 @@ class SaleController extends Controller
                 $totalFiltered = $q->count();
             } else {
                 $q = $q->select('sales.*')
-                    ->with('biller', 'customer', 'warehouse', 'user')
-                    ->orwhere('sales.reference_no', 'LIKE', "%{$search}%")
-                    ->orwhere('customers.name', 'LIKE', "%{$search}%")
-                    ->orwhere('customers.phone_number', 'LIKE', "%{$search}%")
-                    ->orwhere('billers.name', 'LIKE', "%{$search}%");
+                        ->with('biller', 'customer', 'warehouse', 'user')
+                        ->orwhere('sales.reference_no', 'LIKE', "%{$search}%")
+                        ->orwhere('customers.name', 'LIKE', "%{$search}%")
+                        ->orwhere('customers.phone_number', 'LIKE', "%{$search}%")
+                        ->orwhere('billers.name', 'LIKE', "%{$search}%");
                 foreach ($field_names as $key => $field_name) {
                     $q = $q->orwhere('sales.' . $field_name, 'LIKE', "%{$search}%");
                 }
@@ -617,18 +623,15 @@ class SaleController extends Controller
                         </li>';
                 }
                 if (in_array("sale-payment-index", $request['all_permission']))
-                    $nestedData['options'] .=
-                        '<li>
+                    $nestedData['options'] .= '<li>
                             <button type="button" class="get-payment btn btn-link" data-id = "' . $sale->id . '"><i class="fa fa-money"></i> ' . trans('file.View Payment') . '</button>
                         </li>';
                 if (in_array("sale-payment-add", $request['all_permission']))
-                    $nestedData['options'] .=
-                        '<li>
+                    $nestedData['options'] .= '<li>
                             <button type="button" class="add-payment btn btn-link" data-id = "' . $sale->id . '" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i> ' . trans('file.Add Payment') . '</button>
                         </li>';
 
-                $nestedData['options'] .=
-                    '<li>
+                $nestedData['options'] .= '<li>
                         <button type="button" class="add-delivery btn btn-link" data-id = "' . $sale->id . '"><i class="fa fa-truck"></i> ' . trans('file.Add Delivery') . '</button>
                     </li>';
                 if (in_array("sales-delete", $request['all_permission']))
@@ -652,35 +655,32 @@ class SaleController extends Controller
 
                 $nestedData['sale'] = array(
                     '[ "' . date(config('date_format'), strtotime($sale->created_at->toDateString())) . '"', ' "' . $sale->reference_no . '"', ' "' . $sale_status . '"', ' "' . $sale->biller_name . '"', ' "' . $sale->biller_company_name . '"', ' "' . $sale->biller_email . '"', ' "' . $sale->biller_phone_number . '"', ' "' . $sale->biller_address . '"', ' "' . $sale->biller_city . '"', ' "' . $sale->customer_name . '"', ' "' . $sale->customer_phone_number . '"', ' "' . $sale->customer_address . '"', ' "' . $sale->customer_city . '"', ' "' . $sale->id . '"', ' "' . $sale->total_tax . '"', ' "' . $sale->total_discount . '"', ' "' . $sale->total_price . '"', ' "' . $sale->order_tax . '"', ' "' . $sale->order_tax_rate . '"', ' "' . $sale->order_discount . '"', ' "' . $sale->shipping_cost . '"', ' "' . $sale->grand_total . '"', ' "' . $sale->paid_amount . '"', ' "' . preg_replace('/[\n\r]/', "<br>", $sale->sale_note) . '"', ' "' . preg_replace('/[\n\r]/', "<br>", $sale->staff_note) . '"', ' "' . $sale->user_name . '"', ' "' . $sale->user_email . '"', ' "' . $sale->warehouse_name . '"', ' "' . $coupon_code . '"', ' "' . $sale->coupon_discount . '"', ' "' . $sale->document . '"', ' "' . $currency_code . '"', ' "' . $sale->exchange_rate . '"]'
-
                 );
                 $data[] = $nestedData;
             }
         }
         $json_data = array(
-            "draw"            => intval($request->input('draw')),
-            "recordsTotal"    => intval($totalData),
+            "draw" => intval($request->input('draw')),
+            "recordsTotal" => intval($totalData),
             "recordsFiltered" => intval($totalFiltered),
-            "data"            => $data
+            "data" => $data
         );
         echo json_encode($json_data);
     }
 
-
-    public function create()
-    {
+    public function create() {
         $role = Role::find(Auth::user()->role_id);
         if ($role->hasPermissionTo('sales-add')) {
             $lims_customer_list = Customer::where('is_active', true)->get();
             if (Auth::user()->role_id > 2) {
                 $lims_warehouse_list = Warehouse::where([
-                    ['is_active', true],
-                    ['id', Auth::user()->warehouse_id]
-                ])->get();
+                            ['is_active', true],
+                            ['id', Auth::user()->warehouse_id]
+                        ])->get();
                 $lims_biller_list = Biller::where([
-                    ['is_active', true],
-                    ['id', Auth::user()->biller_id]
-                ])->get();
+                            ['is_active', true],
+                            ['id', Auth::user()->biller_id]
+                        ])->get();
             } else {
                 $lims_warehouse_list = Warehouse::where('is_active', true)->get();
                 $lims_biller_list = Biller::where('is_active', true)->get();
@@ -703,12 +703,11 @@ class SaleController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $data = $request->all();
         //return $data;
-        /*DB::beginTransaction();
-        try {*/
+        /* DB::beginTransaction();
+          try { */
         if (isset($request->reference_no)) {
             $this->validate($request, [
                 'reference_no' => [
@@ -719,10 +718,10 @@ class SaleController extends Controller
 
         $data['user_id'] = Auth::id();
         $cash_register_data = CashRegister::where([
-            ['user_id', $data['user_id']],
-            ['warehouse_id', $data['warehouse_id']],
-            ['status', true]
-        ])->first();
+                    ['user_id', $data['user_id']],
+                    ['warehouse_id', $data['warehouse_id']],
+                    ['status', true]
+                ])->first();
 
         if ($cash_register_data)
             $data['cash_register_id'] = $cash_register_data->id;
@@ -758,12 +757,12 @@ class SaleController extends Controller
         $document = $request->document;
         if ($document) {
             $v = Validator::make(
-                [
-                    'extension' => strtolower($request->document->getClientOriginalExtension()),
-                ],
-                [
-                    'extension' => 'in:jpg,jpeg,png,gif,pdf,csv,docx,xlsx,txt',
-                ]
+                            [
+                                'extension' => strtolower($request->document->getClientOriginalExtension()),
+                            ],
+                            [
+                                'extension' => 'in:jpg,jpeg,png,gif,pdf,csv,docx,xlsx,txt',
+                            ]
             );
             if ($v->fails())
                 return redirect()->back()->withErrors($v->errors());
@@ -810,8 +809,8 @@ class SaleController extends Controller
         $lims_customer_data = Customer::find($data['customer_id']);
         $lims_reward_point_setting_data = RewardPointSetting::latest()->first();
         //checking if customer gets some points or not
-        if ($lims_reward_point_setting_data && $lims_reward_point_setting_data->is_active &&  $data['grand_total'] >= $lims_reward_point_setting_data->minimum_amount) {
-            $point = (int)($data['grand_total'] / $lims_reward_point_setting_data->per_point_amount);
+        if ($lims_reward_point_setting_data && $lims_reward_point_setting_data->is_active && $data['grand_total'] >= $lims_reward_point_setting_data->minimum_amount) {
+            $point = (int) ($data['grand_total'] / $lims_reward_point_setting_data->per_point_amount);
             $lims_customer_data->points += $point;
             $lims_customer_data->save();
         }
@@ -861,23 +860,23 @@ class SaleController extends Controller
                     $child_data = Product::find($child_id);
                     if (count($variant_list) && $variant_list[$key]) {
                         $child_product_variant_data = ProductVariant::where([
-                            ['product_id', $child_id],
-                            ['variant_id', $variant_list[$key]]
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['variant_id', $variant_list[$key]]
+                                ])->first();
 
                         $child_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $child_id],
-                            ['variant_id', $variant_list[$key]],
-                            ['warehouse_id', $data['warehouse_id']],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['variant_id', $variant_list[$key]],
+                                    ['warehouse_id', $data['warehouse_id']],
+                                ])->first();
 
                         $child_product_variant_data->qty -= $qty[$i] * $qty_list[$key];
                         $child_product_variant_data->save();
                     } else {
                         $child_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $child_id],
-                            ['warehouse_id', $data['warehouse_id']],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['warehouse_id', $data['warehouse_id']],
+                                ])->first();
                     }
 
                     $child_data->qty -= $qty[$i] * $qty_list[$key];
@@ -889,7 +888,7 @@ class SaleController extends Controller
             }
 
             if ($sale_unit[$i] != 'n/a') {
-                $lims_sale_unit_data  = Unit::where('unit_name', $sale_unit[$i])->first();
+                $lims_sale_unit_data = Unit::where('unit_name', $sale_unit[$i])->first();
                 $sale_unit_id = $lims_sale_unit_data->id;
                 if ($lims_product_data->is_variant) {
                     $lims_product_variant_data = ProductVariant::select('id', 'variant_id', 'qty')->FindExactProductWithCode($id, $product_code[$i])->first();
@@ -914,9 +913,9 @@ class SaleController extends Controller
                         $lims_product_warehouse_data = Product_Warehouse::FindProductWithVariant($id, $lims_product_variant_data->variant_id, $data['warehouse_id'])->first();
                     } elseif ($product_batch_id[$i]) {
                         $lims_product_warehouse_data = Product_Warehouse::where([
-                            ['product_batch_id', $product_batch_id[$i]],
-                            ['warehouse_id', $data['warehouse_id']]
-                        ])->first();
+                                    ['product_batch_id', $product_batch_id[$i]],
+                                    ['warehouse_id', $data['warehouse_id']]
+                                ])->first();
                         $lims_product_batch_data = ProductBatch::find($product_batch_id[$i]);
                         //deduct product batch quantity
                         $lims_product_batch_data->qty -= $quantity;
@@ -1032,24 +1031,23 @@ class SaleController extends Controller
                 if (!$lims_payment_with_credit_card_data) {
                     // Create a Customer:
                     $customer = \Stripe\Customer::create([
-                        'source' => $token
+                                'source' => $token
                     ]);
 
                     // Charge the Customer instead of the card:
                     $charge = \Stripe\Charge::create([
-                        'amount' => $grand_total * 100,
-                        'currency' => 'usd',
-                        'customer' => $customer->id
+                                'amount' => $grand_total * 100,
+                                'currency' => 'usd',
+                                'customer' => $customer->id
                     ]);
                     $data['customer_stripe_id'] = $customer->id;
                 } else {
-                    $customer_id =
-                        $lims_payment_with_credit_card_data->customer_stripe_id;
+                    $customer_id = $lims_payment_with_credit_card_data->customer_stripe_id;
 
                     $charge = \Stripe\Charge::create([
-                        'amount' => $grand_total * 100,
-                        'currency' => 'usd',
-                        'customer' => $customer_id, // Previously stored, then retrieved
+                                'amount' => $grand_total * 100,
+                                'currency' => 'usd',
+                                'customer' => $customer_id, // Previously stored, then retrieved
                     ]);
                     $data['customer_stripe_id'] = $customer_id;
                 }
@@ -1119,11 +1117,11 @@ class SaleController extends Controller
                 $lims_customer_data->save();
             }
         }
-        /*}
-        catch(Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => $e->getMessage()]);
-        }*/
+        /* }
+          catch(Exception $e) {
+          DB::rollBack();
+          return response()->json(['error' => $e->getMessage()]);
+          } */
         if ($lims_sale_data->sale_status == '1')
             return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', $message);
         elseif ($data['pos'])
@@ -1132,8 +1130,7 @@ class SaleController extends Controller
             return redirect('sales')->with('message', $message);
     }
 
-    public function sendMail(Request $request)
-    {
+    public function sendMail(Request $request) {
         $data = $request->all();
         $lims_sale_data = Sale::find($data['sale_id']);
         $lims_product_sale_data = Product_Sale::where('sale_id', $data['sale_id'])->get();
@@ -1188,8 +1185,7 @@ class SaleController extends Controller
             return $this->setErrorMessage('Customer doesnt have email!');
     }
 
-    public function paypalSuccess(Request $request)
-    {
+    public function paypalSuccess(Request $request) {
         $lims_sale_data = Sale::latest()->first();
         $lims_payment_data = Payment::latest()->first();
         $lims_product_sale_data = Product_Sale::where('sale_id', $lims_sale_data->id)->get();
@@ -1247,8 +1243,7 @@ class SaleController extends Controller
         return redirect('sales')->with('message', 'Sales created successfully');
     }
 
-    public function paypalPaymentSuccess(Request $request, $id)
-    {
+    public function paypalPaymentSuccess(Request $request, $id) {
         $lims_payment_data = Payment::find($id);
         $provider = new ExpressCheckout;
         $token = $request->token;
@@ -1278,8 +1273,7 @@ class SaleController extends Controller
         return redirect('sales')->with('message', 'Payment created successfully');
     }
 
-    public function getProduct($id)
-    {
+    public function getProduct($id) {
         $query = Product::join('product_warehouse', 'products.id', '=', 'product_warehouse.product_id');
         if (config('without_stock') == 'no') {
             $query = $query->where([
@@ -1294,9 +1288,9 @@ class SaleController extends Controller
             ]);
         }
         $lims_product_warehouse_data = $query->whereNull('product_warehouse.variant_id')
-            ->whereNull('product_warehouse.product_batch_id')
-            ->select('product_warehouse.*',  'products.is_embeded')
-            ->get();
+                ->whereNull('product_warehouse.product_batch_id')
+                ->select('product_warehouse.*', 'products.is_embeded')
+                ->get();
 
         config()->set('database.connections.mysql.strict', false);
         \DB::reconnect(); //important as the existing connection if any would be in strict mode
@@ -1317,10 +1311,10 @@ class SaleController extends Controller
         }
 
         $lims_product_with_batch_warehouse_data = $query->whereNull('product_warehouse.variant_id')
-            ->whereNotNull('product_warehouse.product_batch_id')
-            ->select('product_warehouse.*', 'products.is_embeded')
-            ->groupBy('product_warehouse.product_id')
-            ->get();
+                ->whereNotNull('product_warehouse.product_batch_id')
+                ->select('product_warehouse.*', 'products.is_embeded')
+                ->groupBy('product_warehouse.product_id')
+                ->get();
 
         //now changing back the strict ON
         config()->set('database.connections.mysql.strict', true);
@@ -1340,8 +1334,8 @@ class SaleController extends Controller
             ]);
         }
         $lims_product_with_variant_warehouse_data = $query->whereNotNull('product_warehouse.variant_id')
-            ->select('product_warehouse.*', 'products.is_embeded')
-            ->get();
+                ->select('product_warehouse.*', 'products.is_embeded')
+                ->get();
 
         $product_code = [];
         $product_name = [];
@@ -1360,7 +1354,7 @@ class SaleController extends Controller
             $product_qty[] = $product_warehouse->qty;
             $product_price[] = $product_warehouse->price;
             $lims_product_data = Product::find($product_warehouse->product_id);
-            $product_code[] =  $lims_product_data->code;
+            $product_code[] = $lims_product_data->code;
             $product_name[] = htmlspecialchars($lims_product_data->name);
             $product_type[] = $lims_product_data->type;
             $product_id[] = $lims_product_data->id;
@@ -1379,7 +1373,7 @@ class SaleController extends Controller
             $product_qty[] = $product_warehouse->qty;
             $product_price[] = $product_warehouse->price;
             $lims_product_data = Product::find($product_warehouse->product_id);
-            $product_code[] =  $lims_product_data->code;
+            $product_code[] = $lims_product_data->code;
             $product_name[] = htmlspecialchars($lims_product_data->name);
             $product_type[] = $lims_product_data->type;
             $product_id[] = $lims_product_data->id;
@@ -1400,7 +1394,7 @@ class SaleController extends Controller
             $lims_product_data = Product::find($product_warehouse->product_id);
             $lims_product_variant_data = ProductVariant::select('item_code')->FindExactProduct($product_warehouse->product_id, $product_warehouse->variant_id)->first();
             if ($lims_product_variant_data) {
-                $product_code[] =  $lims_product_variant_data->item_code;
+                $product_code[] = $lims_product_variant_data->item_code;
                 $product_name[] = htmlspecialchars($lims_product_data->name);
                 $product_type[] = $lims_product_data->type;
                 $product_id[] = $lims_product_data->id;
@@ -1419,7 +1413,7 @@ class SaleController extends Controller
         $lims_product_data = Product::whereNotIn('type', ['standard'])->where('is_active', true)->get();
         foreach ($lims_product_data as $product) {
             $product_qty[] = $product->qty;
-            $product_code[] =  $product->code;
+            $product_code[] = $product->code;
             $product_name[] = $product->name;
             $product_type[] = $product->type;
             $product_id[] = $product->id;
@@ -1434,8 +1428,7 @@ class SaleController extends Controller
         return $product_data;
     }
 
-    public function posSale()
-    {
+    public function posSale() {
         $role = Role::find(Auth::user()->role_id);
         if ($role->hasPermissionTo('sales-add')) {
             $permissions = Role::findByName($role->name)->permissions;
@@ -1445,24 +1438,24 @@ class SaleController extends Controller
                 $all_permission[] = 'dummy text';
 
             $lims_customer_list = Cache::remember('customer_list', 60 * 60 * 24, function () {
-                return Customer::where('is_active', true)->get();
-            });
+                        return Customer::where('is_active', true)->get();
+                    });
             $lims_customer_group_all = Cache::remember('customer_group_list', 60 * 60 * 24, function () {
-                return CustomerGroup::where('is_active', true)->get();
-            });
+                        return CustomerGroup::where('is_active', true)->get();
+                    });
             $lims_warehouse_list = Cache::remember('warehouse_list', 60 * 60 * 24 * 365, function () {
-                return Warehouse::where('is_active', true)->get();
-            });
+                        return Warehouse::where('is_active', true)->get();
+                    });
             $lims_biller_list = Cache::remember('biller_list', 60 * 60 * 24 * 30, function () {
-                return Biller::where('is_active', true)->get();
-            });
+                        return Biller::where('is_active', true)->get();
+                    });
             $lims_reward_point_setting_data = RewardPointSetting::latest()->first();
             $lims_tax_list = Cache::remember('tax_list', 60 * 60 * 24 * 30, function () {
-                return Tax::where('is_active', true)->get();
-            });
+                        return Tax::where('is_active', true)->get();
+                    });
             $lims_product_list = Cache::remember('product_list', 60 * 60 * 24, function () {
-                return Product::ActiveFeatured()->whereNull('is_variant')->get();
-            });
+                        return Product::ActiveFeatured()->whereNull('is_variant')->get();
+                    });
             foreach ($lims_product_list as $key => $product) {
                 $images = explode(",", $product->image);
                 if ($images[0])
@@ -1471,8 +1464,8 @@ class SaleController extends Controller
                     $product->base_image = 'zummXD2dvAtI.png';
             }
             $lims_product_list_with_variant = Cache::remember('product_list_with_variant', 60 * 60 * 24, function () {
-                return Product::ActiveFeatured()->whereNotNull('is_variant')->get();
-            });
+                        return Product::ActiveFeatured()->whereNotNull('is_variant')->get();
+                    });
 
             foreach ($lims_product_list_with_variant as $product) {
                 $images = explode(",", $product->image);
@@ -1492,38 +1485,38 @@ class SaleController extends Controller
 
             $product_number = count($lims_product_list);
             $lims_pos_setting_data = Cache::remember('pos_setting', 60 * 60 * 24 * 30, function () {
-                return PosSetting::latest()->first();
-            });
+                        return PosSetting::latest()->first();
+                    });
             if ($lims_pos_setting_data)
                 $options = explode(',', $lims_pos_setting_data->payment_options);
             else
                 $options = [];
             $lims_brand_list = Cache::remember('brand_list', 60 * 60 * 24 * 30, function () {
-                return Brand::where('is_active', true)->get();
-            });
+                        return Brand::where('is_active', true)->get();
+                    });
             $lims_category_list = Cache::remember('category_list', 60 * 60 * 24 * 30, function () {
-                return Category::where('is_active', true)->get();
-            });
+                        return Category::where('is_active', true)->get();
+                    });
             $lims_table_list = Cache::remember('table_list', 60 * 60 * 24 * 30, function () {
-                return Table::where('is_active', true)->get();
-            });
+                        return Table::where('is_active', true)->get();
+                    });
             //return $lims_category_list;
             if (Auth::user()->role_id > 2 && config('staff_access') == 'own') {
                 $recent_sale = Sale::select('id', 'reference_no', 'customer_id', 'grand_total', 'created_at')->where([
-                    ['sale_status', 1],
-                    ['user_id', Auth::id()]
-                ])->orderBy('id', 'desc')->take(10)->get();
+                            ['sale_status', 1],
+                            ['user_id', Auth::id()]
+                        ])->orderBy('id', 'desc')->take(10)->get();
                 $recent_draft = Sale::select('id', 'reference_no', 'customer_id', 'grand_total', 'created_at')->where([
-                    ['sale_status', 3],
-                    ['user_id', Auth::id()]
-                ])->orderBy('id', 'desc')->take(10)->get();
+                            ['sale_status', 3],
+                            ['user_id', Auth::id()]
+                        ])->orderBy('id', 'desc')->take(10)->get();
             } else {
                 $recent_sale = Sale::select('id', 'reference_no', 'customer_id', 'grand_total', 'created_at')->where('sale_status', 1)->orderBy('id', 'desc')->take(10)->get();
                 $recent_draft = Sale::select('id', 'reference_no', 'customer_id', 'grand_total', 'created_at')->where('sale_status', 3)->orderBy('id', 'desc')->take(10)->get();
             }
             $lims_coupon_list = Cache::remember('coupon_list', 60 * 60 * 24 * 30, function () {
-                return Coupon::where('is_active', true)->get();
-            });
+                        return Coupon::where('is_active', true)->get();
+                    });
             $flag = 0;
 
             $currency_list = Currency::where('is_active', true)->get();
@@ -1534,8 +1527,7 @@ class SaleController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
-    public function createSale($id)
-    {
+    public function createSale($id) {
         $role = Role::find(Auth::user()->role_id);
         if ($role->hasPermissionTo('sales-edit')) {
             $lims_biller_list = Biller::where('is_active', true)->get();
@@ -1547,9 +1539,9 @@ class SaleController extends Controller
             $lims_sale_data = Sale::find($id);
             $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
             $lims_product_list = Product::where([
-                ['featured', 1],
-                ['is_active', true]
-            ])->get();
+                        ['featured', 1],
+                        ['is_active', true]
+                    ])->get();
             foreach ($lims_product_list as $key => $product) {
                 $images = explode(",", $product->image);
                 if ($images[0])
@@ -1570,38 +1562,37 @@ class SaleController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
-    public function getProductByFilter($category_id, $brand_id)
-    {
+    public function getProductByFilter($category_id, $brand_id) {
         $data = [];
         if (($category_id != 0) && ($brand_id != 0)) {
             $lims_product_list = DB::table('products')
-                ->join('categories', 'products.category_id', '=', 'categories.id')
-                ->where([
-                    ['products.is_active', true],
-                    ['products.category_id', $category_id],
-                    ['brand_id', $brand_id]
-                ])->orWhere([
-                    ['categories.parent_id', $category_id],
-                    ['products.is_active', true],
-                    ['brand_id', $brand_id]
-                ])->select('products.name', 'products.code', 'products.image')->get();
+                            ->join('categories', 'products.category_id', '=', 'categories.id')
+                            ->where([
+                                ['products.is_active', true],
+                                ['products.category_id', $category_id],
+                                ['brand_id', $brand_id]
+                            ])->orWhere([
+                        ['categories.parent_id', $category_id],
+                        ['products.is_active', true],
+                        ['brand_id', $brand_id]
+                    ])->select('products.name', 'products.code', 'products.image')->get();
         } elseif (($category_id != 0) && ($brand_id == 0)) {
             $lims_product_list = DB::table('products')
-                ->join('categories', 'products.category_id', '=', 'categories.id')
-                ->where([
-                    ['products.is_active', true],
-                    ['products.category_id', $category_id],
-                ])->orWhere([
-                    ['categories.parent_id', $category_id],
-                    ['products.is_active', true]
-                ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')->get();
+                            ->join('categories', 'products.category_id', '=', 'categories.id')
+                            ->where([
+                                ['products.is_active', true],
+                                ['products.category_id', $category_id],
+                            ])->orWhere([
+                        ['categories.parent_id', $category_id],
+                        ['products.is_active', true]
+                    ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')->get();
         } elseif (($category_id == 0) && ($brand_id != 0)) {
             $lims_product_list = Product::where([
-                ['brand_id', $brand_id],
-                ['is_active', true]
-            ])
-                ->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')
-                ->get();
+                        ['brand_id', $brand_id],
+                        ['is_active', true]
+                    ])
+                    ->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')
+                    ->get();
         } else
             $lims_product_list = Product::where('is_active', true)->get();
 
@@ -1628,13 +1619,12 @@ class SaleController extends Controller
         return $data;
     }
 
-    public function getFeatured()
-    {
+    public function getFeatured() {
         $data = [];
         $lims_product_list = Product::where([
-            ['is_active', true],
-            ['featured', true]
-        ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')->get();
+                    ['is_active', true],
+                    ['featured', true]
+                ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')->get();
 
         $index = 0;
         foreach ($lims_product_list as $product) {
@@ -1659,15 +1649,13 @@ class SaleController extends Controller
         return $data;
     }
 
-    public function getCustomerGroup($id)
-    {
+    public function getCustomerGroup($id) {
         $lims_customer_data = Customer::find($id);
         $lims_customer_group_data = CustomerGroup::find($lims_customer_data->customer_group_id);
         return $lims_customer_group_data->percentage;
     }
 
-    public function limsProductSearch(Request $request)
-    {
+    public function limsProductSearch(Request $request) {
         $todayDate = date('Y-m-d');
         $product_code = explode("(", $request['data']);
         $product_info = explode("?", $request['data']);
@@ -1683,27 +1671,27 @@ class SaleController extends Controller
         }
         $product_variant_id = null;
         $all_discount = DB::table('discount_plan_customers')
-            ->join('discount_plans', 'discount_plans.id', '=', 'discount_plan_customers.discount_plan_id')
-            ->join('discount_plan_discounts', 'discount_plans.id', '=', 'discount_plan_discounts.discount_plan_id')
-            ->join('discounts', 'discounts.id', '=', 'discount_plan_discounts.discount_id')
-            ->where([
-                ['discount_plans.is_active', true],
-                ['discounts.is_active', true],
-                ['discount_plan_customers.customer_id', $customer_id]
-            ])
-            ->select('discounts.*')
-            ->get();
+                ->join('discount_plans', 'discount_plans.id', '=', 'discount_plan_customers.discount_plan_id')
+                ->join('discount_plan_discounts', 'discount_plans.id', '=', 'discount_plan_discounts.discount_plan_id')
+                ->join('discounts', 'discounts.id', '=', 'discount_plan_discounts.discount_id')
+                ->where([
+                    ['discount_plans.is_active', true],
+                    ['discounts.is_active', true],
+                    ['discount_plan_customers.customer_id', $customer_id]
+                ])
+                ->select('discounts.*')
+                ->get();
         $lims_product_data = Product::where([
-            ['code', $product_code[0]],
-            ['is_active', true]
-        ])->first();
+                    ['code', $product_code[0]],
+                    ['is_active', true]
+                ])->first();
         if (!$lims_product_data) {
             $lims_product_data = Product::join('product_variants', 'products.id', 'product_variants.product_id')
-                ->select('products.*', 'product_variants.id as product_variant_id', 'product_variants.item_code', 'product_variants.additional_price')
-                ->where([
-                    ['product_variants.item_code', $product_code[0]],
-                    ['products.is_active', true]
-                ])->first();
+                            ->select('products.*', 'product_variants.id as product_variant_id', 'product_variants.item_code', 'product_variants.additional_price')
+                            ->where([
+                                ['product_variants.item_code', $product_code[0]],
+                                ['products.is_active', true]
+                            ])->first();
             $product_variant_id = $lims_product_data->product_variant_id;
         }
 
@@ -1748,8 +1736,8 @@ class SaleController extends Controller
         $product[] = $lims_product_data->tax_method;
         if ($lims_product_data->type == 'standard') {
             $units = Unit::where("base_unit", $lims_product_data->unit_id)
-                ->orWhere('id', $lims_product_data->unit_id)
-                ->get();
+                    ->orWhere('id', $lims_product_data->unit_id)
+                    ->get();
             $unit_name = array();
             $unit_operator = array();
             $unit_operation_value = array();
@@ -1759,7 +1747,7 @@ class SaleController extends Controller
                     array_unshift($unit_operator, $unit->operator);
                     array_unshift($unit_operation_value, $unit->operation_value);
                 } else {
-                    $unit_name[]  = $unit->unit_name;
+                    $unit_name[] = $unit->unit_name;
                     $unit_operator[] = $unit->operator;
                     $unit_operation_value[] = $unit->operation_value;
                 }
@@ -1782,23 +1770,22 @@ class SaleController extends Controller
         return $product;
     }
 
-    public function checkDiscount(Request $request)
-    {
+    public function checkDiscount(Request $request) {
         $qty = $request->input('qty');
         $customer_id = $request->input('customer_id');
         $lims_product_data = Product::select('id', 'price', 'promotion', 'promotion_price', 'last_date')->find($request->input('product_id'));
         $todayDate = date('Y-m-d');
         $all_discount = DB::table('discount_plan_customers')
-            ->join('discount_plans', 'discount_plans.id', '=', 'discount_plan_customers.discount_plan_id')
-            ->join('discount_plan_discounts', 'discount_plans.id', '=', 'discount_plan_discounts.discount_plan_id')
-            ->join('discounts', 'discounts.id', '=', 'discount_plan_discounts.discount_id')
-            ->where([
-                ['discount_plans.is_active', true],
-                ['discounts.is_active', true],
-                ['discount_plan_customers.customer_id', $customer_id]
-            ])
-            ->select('discounts.*')
-            ->get();
+                ->join('discount_plans', 'discount_plans.id', '=', 'discount_plan_customers.discount_plan_id')
+                ->join('discount_plan_discounts', 'discount_plans.id', '=', 'discount_plan_discounts.discount_plan_id')
+                ->join('discounts', 'discounts.id', '=', 'discount_plan_discounts.discount_id')
+                ->where([
+                    ['discount_plans.is_active', true],
+                    ['discounts.is_active', true],
+                    ['discount_plan_customers.customer_id', $customer_id]
+                ])
+                ->select('discounts.*')
+                ->get();
         $no_discount = 1;
         foreach ($all_discount as $key => $discount) {
             $product_list = explode(",", $discount->product_list);
@@ -1826,21 +1813,17 @@ class SaleController extends Controller
         return $data;
     }
 
-    public function getGiftCard()
-    {
+    public function getGiftCard() {
         $gift_card = GiftCard::where("is_active", true)->whereDate('expired_date', '>=', date("Y-m-d"))->get(['id', 'card_no', 'amount', 'expense']);
         return json_encode($gift_card);
     }
 
-    public function productSaleData($id)
-    {
+    public function productSaleData($id) {
         $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
-
 
         foreach ($lims_product_sale_data as $key => $product_sale_data) {
 
             $product = Product::find($product_sale_data->product_id);
-
 
             if ($product_sale_data->variant_id) {
                 $lims_product_variant_data = ProductVariant::select('item_code')->FindExactProduct($product_sale_data->product_id, $product_sale_data->variant_id)->first();
@@ -1869,8 +1852,8 @@ class SaleController extends Controller
         }
         return $product_sale;
     }
-    public function getSaleRow($id)
-    {
+
+    public function getSaleRow($id) {
         ///DB::enableQueryLog();
 
         $rsSale = Sale::leftjoin('billers', 'sales.biller_id', 'billers.id')->leftjoin('customers', 'sales.customer_id', 'customers.id')->leftjoin('warehouses', 'sales.warehouse_id', 'warehouses.id')->where('sales.id', $id);
@@ -1879,11 +1862,11 @@ class SaleController extends Controller
             $saleRow = $rsSale->select('sales.*', 'billers.name', 'billers.company_name', 'billers.email', 'billers.phone_number', 'billers.address', 'billers.city', 'billers.state', 'billers.postal_code', 'billers.country', 'warehouses.name as warehouse_name')->first()->toArray();
         }
         ///$queries = DB::getQueryLog();
-       // Log::info(print_r($queries,true));
+        // Log::info(print_r($queries,true));
         return json_encode($saleRow);
     }
-    public function saleByCsv()
-    {
+
+    public function saleByCsv() {
         $role = Role::find(Auth::user()->role_id);
         if ($role->hasPermissionTo('sales-add')) {
             $lims_customer_list = Customer::where('is_active', true)->get();
@@ -1896,8 +1879,7 @@ class SaleController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
-    public function importSale(Request $request)
-    {
+    public function importSale(Request $request) {
         //get the file
         $upload = $request->file('file');
         $ext = pathinfo($upload->getClientOriginalName(), PATHINFO_EXTENSION);
@@ -1941,12 +1923,12 @@ class SaleController extends Controller
         $document = $request->document;
         if ($document) {
             $v = Validator::make(
-                [
-                    'extension' => strtolower($request->document->getClientOriginalExtension()),
-                ],
-                [
-                    'extension' => 'in:jpg,jpeg,png,gif,pdf,csv,docx,xlsx,txt',
-                ]
+                            [
+                                'extension' => strtolower($request->document->getClientOriginalExtension()),
+                            ],
+                            [
+                                'extension' => 'in:jpg,jpeg,png,gif,pdf,csv,docx,xlsx,txt',
+                            ]
             );
             if ($v->fails())
                 return redirect()->back()->withErrors($v->errors());
@@ -1986,9 +1968,9 @@ class SaleController extends Controller
                     $quantity = $qty[$key] / $unit[$key]['operation_value'];
                 $product['qty'] -= $quantity;
                 $product_warehouse = Product_Warehouse::where([
-                    ['product_id', $product['id']],
-                    ['warehouse_id', $data['warehouse_id']]
-                ])->first();
+                            ['product_id', $product['id']],
+                            ['warehouse_id', $data['warehouse_id']]
+                        ])->first();
                 $product_warehouse->qty -= $quantity;
                 $product->save();
                 $product_warehouse->save();
@@ -2010,16 +1992,16 @@ class SaleController extends Controller
             $product_sale->product_id = $product['id'];
             $product_sale->qty = $mail_data['qty'][$key] = $qty[$key];
             $product_sale->sale_unit_id = $sale_unit_id;
-            $product_sale->net_unit_price = number_format((float)$net_unit_price, config('decimal'), '.', '');
+            $product_sale->net_unit_price = number_format((float) $net_unit_price, config('decimal'), '.', '');
             $product_sale->discount = $discount[$key] * $qty[$key];
             $product_sale->tax_rate = $tax[$key]['rate'];
-            $product_sale->tax = number_format((float)$product_tax, config('decimal'), '.', '');
-            $product_sale->total = $mail_data['total'][$key] = number_format((float)$total, config('decimal'), '.', '');
+            $product_sale->tax = number_format((float) $product_tax, config('decimal'), '.', '');
+            $product_sale->total = $mail_data['total'][$key] = number_format((float) $total, config('decimal'), '.', '');
             $product_sale->save();
             $lims_sale_data->total_qty += $qty[$key];
             $lims_sale_data->total_discount += $discount[$key] * $qty[$key];
-            $lims_sale_data->total_tax += number_format((float)$product_tax, config('decimal'), '.', '');
-            $lims_sale_data->total_price += number_format((float)$total, config('decimal'), '.', '');
+            $lims_sale_data->total_tax += number_format((float) $product_tax, config('decimal'), '.', '');
+            $lims_sale_data->total_price += number_format((float) $total, config('decimal'), '.', '');
         }
         $lims_sale_data->item = $key + 1;
         $lims_sale_data->order_tax = ($lims_sale_data->total_price - $lims_sale_data->order_discount) * ($data['order_tax_rate'] / 100);
@@ -2051,11 +2033,10 @@ class SaleController extends Controller
         return redirect('sales')->with('message', $message);
     }
 
-    public function edit($id)
-    {
+    public function edit($id) {
         $role = Role::find(Auth::user()->role_id);
-        $courierData = Courier::where(array('is_active'=>1))->select("id","name")->get();    
-        $courier_id = 0;    
+        $courierData = Courier::where(array('is_active' => 1))->select("id", "name")->get();
+        $courier_id = 0;
         if ($role->hasPermissionTo('sales-edit')) {
             $lims_customer_list = Customer::where('is_active', true)->get();
             $lims_warehouse_list = Warehouse::where('is_active', true)->get();
@@ -2069,18 +2050,16 @@ class SaleController extends Controller
                 $currency_exchange_rate = 1;
             $custom_fields = CustomField::where('belongs_to', 'sale')->get();
 
-            $rsDeliver = Delivery::where('sale_id',$id);
-            if($rsDeliver->count()>0){
+            $rsDeliver = Delivery::where('sale_id', $id);
+            if ($rsDeliver->count() > 0) {
                 $courier_id = $rsDeliver->value('courier_id');
             }
-            return view('backend.sale.edit', compact('lims_customer_list', 'lims_warehouse_list', 'lims_biller_list', 'lims_tax_list', 'lims_sale_data', 'lims_product_sale_data', 'currency_exchange_rate', 'custom_fields','courierData','courier_id'));
+            return view('backend.sale.edit', compact('lims_customer_list', 'lims_warehouse_list', 'lims_biller_list', 'lims_tax_list', 'lims_sale_data', 'lims_product_sale_data', 'currency_exchange_rate', 'custom_fields', 'courierData', 'courier_id'));
         } else
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
-
-    public function update(Request $request, $id)
-    {
+    public function update(Request $request, $id) {
         $data = $request->except('document');
         //return dd($data);
         $document = $request->document;
@@ -2088,12 +2067,12 @@ class SaleController extends Controller
 
         if ($document) {
             $v = Validator::make(
-                [
-                    'extension' => strtolower($request->document->getClientOriginalExtension()),
-                ],
-                [
-                    'extension' => 'in:jpg,jpeg,png,gif,pdf,csv,docx,xlsx,txt',
-                ]
+                            [
+                                'extension' => strtolower($request->document->getClientOriginalExtension()),
+                            ],
+                            [
+                                'extension' => 'in:jpg,jpeg,png,gif,pdf,csv,docx,xlsx,txt',
+                            ]
             );
             if ($v->fails())
                 return redirect()->back()->withErrors($v->errors());
@@ -2112,13 +2091,13 @@ class SaleController extends Controller
             $data['document'] = $documentName;
         }
         $balance = $data['grand_total'] - $data['paid_amount'];
-        
+
         /*
-        if ($balance < 0 || $balance > 0)
-            $data['payment_status'] = 2;
-        else
-            $data['payment_status'] = 4;
-        */
+          if ($balance < 0 || $balance > 0)
+          $data['payment_status'] = 2;
+          else
+          $data['payment_status'] = 4;
+         */
         $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
         $data['created_at'] = date("Y-m-d", strtotime(str_replace("/", "-", $data['created_at'])));
         $product_id = $data['product_id'];
@@ -2135,7 +2114,7 @@ class SaleController extends Controller
         $total = $data['subtotal'];
         $old_product_id = [];
         $product_sale = [];
-        foreach ($lims_product_sale_data as  $key => $product_sale_data) {
+        foreach ($lims_product_sale_data as $key => $product_sale_data) {
             $old_product_id[] = $product_sale_data->product_id;
             $old_product_variant_id[] = null;
             $lims_product_data = Product::find($product_sale_data->product_id);
@@ -2153,23 +2132,23 @@ class SaleController extends Controller
                     $child_data = Product::find($child_id);
                     if (count($variant_list) && $variant_list[$index]) {
                         $child_product_variant_data = ProductVariant::where([
-                            ['product_id', $child_id],
-                            ['variant_id', $variant_list[$index]]
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['variant_id', $variant_list[$index]]
+                                ])->first();
 
                         $child_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $child_id],
-                            ['variant_id', $variant_list[$index]],
-                            ['warehouse_id', $lims_sale_data->warehouse_id],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['variant_id', $variant_list[$index]],
+                                    ['warehouse_id', $lims_sale_data->warehouse_id],
+                                ])->first();
 
                         $child_product_variant_data->qty += $product_sale_data->qty * $qty_list[$index];
                         $child_product_variant_data->save();
                     } else {
                         $child_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $child_id],
-                            ['warehouse_id', $lims_sale_data->warehouse_id],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['warehouse_id', $lims_sale_data->warehouse_id],
+                                ])->first();
                     }
 
                     $child_data->qty += $product_sale_data->qty * $qty_list[$index];
@@ -2188,23 +2167,23 @@ class SaleController extends Controller
                 if ($product_sale_data->variant_id) {
                     $lims_product_variant_data = ProductVariant::select('id', 'qty')->FindExactProduct($product_sale_data->product_id, $product_sale_data->variant_id)->first();
                     $lims_product_warehouse_data = Product_Warehouse::FindProductWithVariant($product_sale_data->product_id, $product_sale_data->variant_id, $lims_sale_data->warehouse_id)
-                        ->first();
+                            ->first();
                     $old_product_variant_id[$key] = $lims_product_variant_data->id;
                     $lims_product_variant_data->qty += $old_product_qty;
                     $lims_product_variant_data->save();
                 } elseif ($product_sale_data->product_batch_id) {
                     $lims_product_warehouse_data = Product_Warehouse::where([
-                        ['product_id', $product_sale_data->product_id],
-                        ['product_batch_id', $product_sale_data->product_batch_id],
-                        ['warehouse_id', $lims_sale_data->warehouse_id]
-                    ])->first();
+                                ['product_id', $product_sale_data->product_id],
+                                ['product_batch_id', $product_sale_data->product_batch_id],
+                                ['warehouse_id', $lims_sale_data->warehouse_id]
+                            ])->first();
 
                     $product_batch_data = ProductBatch::find($product_sale_data->product_batch_id);
                     $product_batch_data->qty += $old_product_qty;
                     $product_batch_data->save();
                 } else
                     $lims_product_warehouse_data = Product_Warehouse::FindProductWithoutVariant($product_sale_data->product_id, $lims_sale_data->warehouse_id)
-                        ->first();
+                            ->first();
                 $lims_product_data->qty += $old_product_qty;
                 $lims_product_warehouse_data->qty += $old_product_qty;
                 $lims_product_data->save();
@@ -2240,23 +2219,23 @@ class SaleController extends Controller
                     $child_data = Product::find($child_id);
                     if (count($variant_list) && $variant_list[$index]) {
                         $child_product_variant_data = ProductVariant::where([
-                            ['product_id', $child_id],
-                            ['variant_id', $variant_list[$index]],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['variant_id', $variant_list[$index]],
+                                ])->first();
 
                         $child_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $child_id],
-                            ['variant_id', $variant_list[$index]],
-                            ['warehouse_id', $data['warehouse_id']],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['variant_id', $variant_list[$index]],
+                                    ['warehouse_id', $data['warehouse_id']],
+                                ])->first();
 
                         $child_product_variant_data->qty -= $qty[$key] * $qty_list[$index];
                         $child_product_variant_data->save();
                     } else {
                         $child_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $child_id],
-                            ['warehouse_id', $data['warehouse_id']],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['warehouse_id', $data['warehouse_id']],
+                                ])->first();
                     }
 
 
@@ -2280,24 +2259,24 @@ class SaleController extends Controller
                     if ($lims_product_data->is_variant) {
                         $lims_product_variant_data = ProductVariant::select('id', 'variant_id', 'qty')->FindExactProductWithCode($pro_id, $product_code[$key])->first();
                         $lims_product_warehouse_data = Product_Warehouse::FindProductWithVariant($pro_id, $lims_product_variant_data->variant_id, $data['warehouse_id'])
-                            ->first();
+                                ->first();
 
                         $product_sale['variant_id'] = $lims_product_variant_data->variant_id;
                         $lims_product_variant_data->qty -= $new_product_qty;
                         $lims_product_variant_data->save();
                     } elseif ($product_batch_id[$key]) {
                         $lims_product_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $pro_id],
-                            ['product_batch_id', $product_batch_id[$key]],
-                            ['warehouse_id', $data['warehouse_id']]
-                        ])->first();
+                                    ['product_id', $pro_id],
+                                    ['product_batch_id', $product_batch_id[$key]],
+                                    ['warehouse_id', $data['warehouse_id']]
+                                ])->first();
 
                         $product_batch_data = ProductBatch::find($product_batch_id[$key]);
                         $product_batch_data->qty -= $new_product_qty;
                         $product_batch_data->save();
                     } else {
                         $lims_product_warehouse_data = Product_Warehouse::FindProductWithoutVariant($pro_id, $data['warehouse_id'])
-                            ->first();
+                                ->first();
                     }
                     $lims_product_data->qty -= $new_product_qty;
                     $lims_product_warehouse_data->qty -= $new_product_qty;
@@ -2405,14 +2384,12 @@ class SaleController extends Controller
         return redirect('sales')->with('message', $message);
     }
 
-    public function printLastReciept()
-    {
+    public function printLastReciept() {
         $sale = Sale::where('sale_status', 1)->latest()->first();
         return redirect()->route('sale.invoice', $sale->id);
     }
 
-    public function genInvoice($id)
-    {
+    public function genInvoice($id) {
         $lims_sale_data = Sale::find($id);
         $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
         if (cache()->has('biller_list')) {
@@ -2464,13 +2441,13 @@ class SaleController extends Controller
         if (config('is_zatca')) {
             //generating base64 TLV format qrtext for qrcode
             $qrText = GenerateQrCode::fromArray([
-                new Seller(config('company_name')), // seller name
-                new TaxNumber(config('vat_registration_number')), // seller tax number
-                new InvoiceDate($lims_sale_data->created_at->toDateString() . "T" . $lims_sale_data->created_at->toTimeString()), // invoice date as Zulu ISO8601 @see https://en.wikipedia.org/wiki/ISO_8601
-                new InvoiceTotalAmount(number_format((float)$lims_sale_data->grand_total, 4, '.', '')), // invoice total amount
-                new InvoiceTaxAmount(number_format((float)($lims_sale_data->total_tax + $lims_sale_data->order_tax), 4, '.', '')) // invoice tax amount
-                // TODO :: Support others tags
-            ])->toBase64();
+                        new Seller(config('company_name')), // seller name
+                        new TaxNumber(config('vat_registration_number')), // seller tax number
+                        new InvoiceDate($lims_sale_data->created_at->toDateString() . "T" . $lims_sale_data->created_at->toTimeString()), // invoice date as Zulu ISO8601 @see https://en.wikipedia.org/wiki/ISO_8601
+                        new InvoiceTotalAmount(number_format((float) $lims_sale_data->grand_total, 4, '.', '')), // invoice total amount
+                        new InvoiceTaxAmount(number_format((float) ($lims_sale_data->total_tax + $lims_sale_data->order_tax), 4, '.', '')) // invoice tax amount
+                            // TODO :: Support others tags
+                    ])->toBase64();
         } else {
             $qrText = $lims_sale_data->reference_no;
         }
@@ -2491,17 +2468,17 @@ class SaleController extends Controller
                 $paid_by_info = $paying_method;
         }
         $sale_custom_fields = CustomField::where([
-            ['belongs_to', 'sale'],
-            ['is_invoice', true]
-        ])->pluck('name');
+                    ['belongs_to', 'sale'],
+                    ['is_invoice', true]
+                ])->pluck('name');
         $customer_custom_fields = CustomField::where([
-            ['belongs_to', 'customer'],
-            ['is_invoice', true]
-        ])->pluck('name');
+                    ['belongs_to', 'customer'],
+                    ['is_invoice', true]
+                ])->pluck('name');
         $product_custom_fields = CustomField::where([
-            ['belongs_to', 'product'],
-            ['is_invoice', true]
-        ])->pluck('name');
+                    ['belongs_to', 'product'],
+                    ['is_invoice', true]
+                ])->pluck('name');
         if ($lims_pos_setting_data->invoice_option == 'A4') {
             return view('backend.sale.a4_invoice', compact('lims_sale_data', 'currency_code', 'lims_product_sale_data', 'lims_biller_data', 'lims_warehouse_data', 'lims_customer_data', 'lims_payment_data', 'numberInWords', 'paid_by_info', 'sale_custom_fields', 'customer_custom_fields', 'product_custom_fields', 'qrText'));
         } else {
@@ -2509,8 +2486,7 @@ class SaleController extends Controller
         }
     }
 
-    public function addPayment(Request $request)
-    {
+    public function addPayment(Request $request) {
         $data = $request->all();
         if (!$data['amount'])
             $data['amount'] = 0.00;
@@ -2541,10 +2517,10 @@ class SaleController extends Controller
 
 
         $cash_register_data = CashRegister::where([
-            ['user_id', Auth::id()],
-            ['warehouse_id', $lims_sale_data->warehouse_id],
-            ['status', true]
-        ])->first();
+                    ['user_id', Auth::id()],
+                    ['warehouse_id', $lims_sale_data->warehouse_id],
+                    ['status', true]
+                ])->first();
 
         $lims_payment_data = new Payment();
         $lims_payment_data->user_id = Auth::id();
@@ -2580,24 +2556,23 @@ class SaleController extends Controller
             if (!$lims_payment_with_credit_card_data) {
                 // Create a Customer:
                 $customer = \Stripe\Customer::create([
-                    'source' => $token
+                            'source' => $token
                 ]);
 
                 // Charge the Customer instead of the card:
                 $charge = \Stripe\Charge::create([
-                    'amount' => $amount * 100,
-                    'currency' => 'usd',
-                    'customer' => $customer->id,
+                            'amount' => $amount * 100,
+                            'currency' => 'usd',
+                            'customer' => $customer->id,
                 ]);
                 $data['customer_stripe_id'] = $customer->id;
             } else {
-                $customer_id =
-                    $lims_payment_with_credit_card_data->customer_stripe_id;
+                $customer_id = $lims_payment_with_credit_card_data->customer_stripe_id;
 
                 $charge = \Stripe\Charge::create([
-                    'amount' => $amount * 100,
-                    'currency' => 'usd',
-                    'customer' => $customer_id, // Previously stored, then retrieved
+                            'amount' => $amount * 100,
+                            'currency' => 'usd',
+                            'customer' => $customer_id, // Previously stored, then retrieved
                 ]);
                 $data['customer_stripe_id'] = $customer_id;
             }
@@ -2661,8 +2636,7 @@ class SaleController extends Controller
         return redirect('sales')->with('message', $message);
     }
 
-    public function getPayment($id)
-    {
+    public function getPayment($id) {
         $lims_payment_list = Payment::where('sale_id', $id)->get();
         $date = [];
         $payment_reference = [];
@@ -2715,8 +2689,7 @@ class SaleController extends Controller
         return $payments;
     }
 
-    public function updatePayment(Request $request)
-    {
+    public function updatePayment(Request $request) {
         $data = $request->all();
         //return $data;
         $lims_payment_data = Payment::find($data['payment_id']);
@@ -2773,13 +2746,12 @@ class SaleController extends Controller
                     "charge" => $lims_payment_with_credit_card_data->charge_id,
                 ));
 
-                $customer_id =
-                    $lims_payment_with_credit_card_data->customer_stripe_id;
+                $customer_id = $lims_payment_with_credit_card_data->customer_stripe_id;
 
                 $charge = \Stripe\Charge::create([
-                    'amount' => $data['edit_amount'] * 100,
-                    'currency' => 'usd',
-                    'customer' => $customer_id
+                            'amount' => $data['edit_amount'] * 100,
+                            'currency' => 'usd',
+                            'customer' => $customer_id
                 ]);
                 $lims_payment_with_credit_card_data->charge_id = $charge->id;
                 $lims_payment_with_credit_card_data->save();
@@ -2790,23 +2762,22 @@ class SaleController extends Controller
 
                 if (!$lims_payment_with_credit_card_data) {
                     $customer = \Stripe\Customer::create([
-                        'source' => $token
+                                'source' => $token
                     ]);
 
                     $charge = \Stripe\Charge::create([
-                        'amount' => $amount * 100,
-                        'currency' => 'usd',
-                        'customer' => $customer->id,
+                                'amount' => $amount * 100,
+                                'currency' => 'usd',
+                                'customer' => $customer->id,
                     ]);
                     $data['customer_stripe_id'] = $customer->id;
                 } else {
-                    $customer_id =
-                        $lims_payment_with_credit_card_data->customer_stripe_id;
+                    $customer_id = $lims_payment_with_credit_card_data->customer_stripe_id;
 
                     $charge = \Stripe\Charge::create([
-                        'amount' => $amount * 100,
-                        'currency' => 'usd',
-                        'customer' => $customer_id
+                                'amount' => $amount * 100,
+                                'currency' => 'usd',
+                                'customer' => $customer_id
                     ]);
                     $data['customer_stripe_id'] = $customer_id;
                 }
@@ -2892,8 +2863,7 @@ class SaleController extends Controller
         return redirect('sales')->with('message', $message);
     }
 
-    public function deletePayment(Request $request)
-    {
+    public function deletePayment(Request $request) {
         $lims_payment_data = Payment::find($request['id']);
         $lims_sale_data = Sale::where('id', $lims_payment_data->sale_id)->first();
         $lims_sale_data->paid_amount -= $lims_payment_data->amount;
@@ -2942,43 +2912,41 @@ class SaleController extends Controller
         return redirect('sales')->with('not_permitted', 'Payment deleted successfully');
     }
 
-    public function todaySale()
-    {
+    public function todaySale() {
         $data['total_sale_amount'] = Sale::whereDate('created_at', date("Y-m-d"))->sum('grand_total');
         $data['total_payment'] = Payment::whereDate('created_at', date("Y-m-d"))->sum('amount');
         $data['cash_payment'] = Payment::where([
-            ['paying_method', 'Cash']
-        ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
+                    ['paying_method', 'Cash']
+                ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
         $data['credit_card_payment'] = Payment::where([
-            ['paying_method', 'Credit Card']
-        ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
+                    ['paying_method', 'Credit Card']
+                ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
         $data['gift_card_payment'] = Payment::where([
-            ['paying_method', 'Gift Card']
-        ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
+                    ['paying_method', 'Gift Card']
+                ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
         $data['deposit_payment'] = Payment::where([
-            ['paying_method', 'Deposit']
-        ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
+                    ['paying_method', 'Deposit']
+                ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
         $data['cheque_payment'] = Payment::where([
-            ['paying_method', 'Cheque']
-        ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
+                    ['paying_method', 'Cheque']
+                ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
         $data['paypal_payment'] = Payment::where([
-            ['paying_method', 'Paypal']
-        ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
+                    ['paying_method', 'Paypal']
+                ])->whereDate('created_at', date("Y-m-d"))->sum('amount');
         $data['total_sale_return'] = Returns::whereDate('created_at', date("Y-m-d"))->sum('grand_total');
         $data['total_expense'] = Expense::whereDate('created_at', date("Y-m-d"))->sum('amount');
         $data['total_cash'] = $data['total_payment'] - ($data['total_sale_return'] + $data['total_expense']);
         return $data;
     }
 
-    public function todayProfit($warehouse_id)
-    {
+    public function todayProfit($warehouse_id) {
         if ($warehouse_id == 0)
             $product_sale_data = Product_Sale::select(DB::raw('product_id, product_batch_id, sum(qty) as sold_qty, sum(total) as sold_amount'))->whereDate('created_at', date("Y-m-d"))->groupBy('product_id', 'product_batch_id')->get();
         else
             $product_sale_data = Sale::join('product_sales', 'sales.id', '=', 'product_sales.sale_id')
-                ->select(DB::raw('product_sales.product_id, product_sales.product_batch_id, sum(product_sales.qty) as sold_qty, sum(product_sales.total) as sold_amount'))
-                ->where('sales.warehouse_id', $warehouse_id)->whereDate('sales.created_at', date("Y-m-d"))
-                ->groupBy('product_sales.product_id', 'product_sales.product_batch_id')->get();
+                            ->select(DB::raw('product_sales.product_id, product_sales.product_batch_id, sum(product_sales.qty) as sold_qty, sum(product_sales.total) as sold_amount'))
+                            ->where('sales.warehouse_id', $warehouse_id)->whereDate('sales.created_at', date("Y-m-d"))
+                            ->groupBy('product_sales.product_id', 'product_sales.product_batch_id')->get();
 
         $product_revenue = 0;
         $product_cost = 0;
@@ -2987,25 +2955,25 @@ class SaleController extends Controller
             if ($warehouse_id == 0) {
                 if ($product_sale->product_batch_id)
                     $product_purchase_data = ProductPurchase::where([
-                        ['product_id', $product_sale->product_id],
-                        ['product_batch_id', $product_sale->product_batch_id]
-                    ])->get();
+                                ['product_id', $product_sale->product_id],
+                                ['product_batch_id', $product_sale->product_batch_id]
+                            ])->get();
                 else
                     $product_purchase_data = ProductPurchase::where('product_id', $product_sale->product_id)->get();
             } else {
                 if ($product_sale->product_batch_id) {
                     $product_purchase_data = Purchase::join('product_purchases', 'purchases.id', '=', 'product_purchases.purchase_id')
-                        ->where([
-                            ['product_purchases.product_id', $product_sale->product_id],
-                            ['product_purchases.product_batch_id', $product_sale->product_batch_id],
-                            ['purchases.warehouse_id', $warehouse_id]
-                        ])->select('product_purchases.*')->get();
+                                    ->where([
+                                        ['product_purchases.product_id', $product_sale->product_id],
+                                        ['product_purchases.product_batch_id', $product_sale->product_batch_id],
+                                        ['purchases.warehouse_id', $warehouse_id]
+                                    ])->select('product_purchases.*')->get();
                 } else
                     $product_purchase_data = Purchase::join('product_purchases', 'purchases.id', '=', 'product_purchases.purchase_id')
-                        ->where([
-                            ['product_purchases.product_id', $product_sale->product_id],
-                            ['purchases.warehouse_id', $warehouse_id]
-                        ])->select('product_purchases.*')->get();
+                                    ->where([
+                                        ['product_purchases.product_id', $product_sale->product_id],
+                                        ['purchases.warehouse_id', $warehouse_id]
+                                    ])->select('product_purchases.*')->get();
             }
 
             $purchased_qty = 0;
@@ -3038,8 +3006,7 @@ class SaleController extends Controller
         return $data;
     }
 
-    public function deleteBySelection(Request $request)
-    {
+    public function deleteBySelection(Request $request) {
         $sale_id = $request['saleIdArray'];
         foreach ($sale_id as $id) {
             $lims_sale_data = Sale::find($id);
@@ -3064,23 +3031,23 @@ class SaleController extends Controller
                         $child_data = Product::find($child_id);
                         if (count($variant_list) && $variant_list[$index]) {
                             $child_product_variant_data = ProductVariant::where([
-                                ['product_id', $child_id],
-                                ['variant_id', $variant_list[$index]]
-                            ])->first();
+                                        ['product_id', $child_id],
+                                        ['variant_id', $variant_list[$index]]
+                                    ])->first();
 
                             $child_warehouse_data = Product_Warehouse::where([
-                                ['product_id', $child_id],
-                                ['variant_id', $variant_list[$index]],
-                                ['warehouse_id', $lims_sale_data->warehouse_id],
-                            ])->first();
+                                        ['product_id', $child_id],
+                                        ['variant_id', $variant_list[$index]],
+                                        ['warehouse_id', $lims_sale_data->warehouse_id],
+                                    ])->first();
 
                             $child_product_variant_data->qty += $product_sale->qty * $qty_list[$index];
                             $child_product_variant_data->save();
                         } else {
                             $child_warehouse_data = Product_Warehouse::where([
-                                ['product_id', $child_id],
-                                ['warehouse_id', $lims_sale_data->warehouse_id],
-                            ])->first();
+                                        ['product_id', $child_id],
+                                        ['warehouse_id', $lims_sale_data->warehouse_id],
+                                    ])->first();
                         }
 
                         $child_data->qty += $product_sale->qty * $qty_list[$index];
@@ -3103,9 +3070,9 @@ class SaleController extends Controller
                     } elseif ($product_sale->product_batch_id) {
                         $lims_product_batch_data = ProductBatch::find($product_sale->product_batch_id);
                         $lims_product_warehouse_data = Product_Warehouse::where([
-                            ['product_batch_id', $product_sale->product_batch_id],
-                            ['warehouse_id', $lims_sale_data->warehouse_id]
-                        ])->first();
+                                    ['product_batch_id', $product_sale->product_batch_id],
+                                    ['warehouse_id', $lims_sale_data->warehouse_id]
+                                ])->first();
 
                         $lims_product_batch_data->qty -= $product_sale->qty;
                         $lims_product_batch_data->save();
@@ -3158,8 +3125,7 @@ class SaleController extends Controller
         return 'Sale deleted successfully!';
     }
 
-    public function destroy($id)
-    {
+    public function destroy($id) {
         $url = url()->previous();
         $lims_sale_data = Sale::find($id);
         $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
@@ -3184,23 +3150,23 @@ class SaleController extends Controller
                     $child_data = Product::find($child_id);
                     if (count($variant_list) && $variant_list[$index]) {
                         $child_product_variant_data = ProductVariant::where([
-                            ['product_id', $child_id],
-                            ['variant_id', $variant_list[$index]]
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['variant_id', $variant_list[$index]]
+                                ])->first();
 
                         $child_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $child_id],
-                            ['variant_id', $variant_list[$index]],
-                            ['warehouse_id', $lims_sale_data->warehouse_id],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['variant_id', $variant_list[$index]],
+                                    ['warehouse_id', $lims_sale_data->warehouse_id],
+                                ])->first();
 
                         $child_product_variant_data->qty += $product_sale->qty * $qty_list[$index];
                         $child_product_variant_data->save();
                     } else {
                         $child_warehouse_data = Product_Warehouse::where([
-                            ['product_id', $child_id],
-                            ['warehouse_id', $lims_sale_data->warehouse_id],
-                        ])->first();
+                                    ['product_id', $child_id],
+                                    ['warehouse_id', $lims_sale_data->warehouse_id],
+                                ])->first();
                     }
 
                     $child_data->qty += $product_sale->qty * $qty_list[$index];
@@ -3223,9 +3189,9 @@ class SaleController extends Controller
                 } elseif ($product_sale->product_batch_id) {
                     $lims_product_batch_data = ProductBatch::find($product_sale->product_batch_id);
                     $lims_product_warehouse_data = Product_Warehouse::where([
-                        ['product_batch_id', $product_sale->product_batch_id],
-                        ['warehouse_id', $lims_sale_data->warehouse_id]
-                    ])->first();
+                                ['product_batch_id', $product_sale->product_batch_id],
+                                ['warehouse_id', $lims_sale_data->warehouse_id]
+                            ])->first();
 
                     $lims_product_batch_data->qty -= $product_sale->qty;
                     $lims_product_batch_data->save();
@@ -3287,42 +3253,136 @@ class SaleController extends Controller
 
         return Redirect::to($url)->with('not_permitted', $message);
     }
-    public function getLeopardsCourierPaymentStatus(Request $request)
-    {
-        $wo_id = $request->wo_id;        
+
+    public function getLeopardsCourierPaymentStatus(Request $request) {
+        $wo_id = $request->wo_id;
         $status = 'fail';
-        $rsSale = DB::table('sales')->join('deliveries','sales.id','deliveries.sale_id')->where('sales.woocommerce_order_id',$wo_id);
+        $rsSale = DB::table('sales')->join('deliveries', 'sales.id', 'deliveries.sale_id')->where('sales.woocommerce_order_id', $wo_id);
         $resArray = array();
-        if($rsSale->count()>0){
-            $row = $rsSale->select('deliveries.tracking_no','sales.id')->first();
+        if ($rsSale->count() > 0) {
+            $row = $rsSale->select('deliveries.tracking_no', 'sales.id')->first();
             $commonObj = new CommonClass();
             $cn_numbers = $row->tracking_no;
             $order_id = $row->id;
             $resArray = $commonObj->getLeopardsPaymentStatus($cn_numbers, $order_id);
-            $status= 'success'; 
+            $status = 'success';
         }
         echo json_encode(array(
-            'status'=>$status,
-            'data'=>$resArray
+            'status' => $status,
+            'data' => $resArray
         ));
-
     }
-    public function getLeopardDeliveryReport(Request $request)
-    {
-        $wo_id = $request->wo_id;        
+
+    public function getLeopardDeliveryReport(Request $request) {
+        $wo_id = $request->wo_id;
         $status = 'fail';
-        $rsSale = DB::table('sales')->join('deliveries','sales.id','deliveries.sale_id')->where('sales.woocommerce_order_id',$wo_id);
+        $rsSale = DB::table('sales')->join('deliveries', 'sales.id', 'deliveries.sale_id')->where('sales.woocommerce_order_id', $wo_id);
         $resArray = array();
-        if($rsSale->count()>0){
-            $row = $rsSale->select('deliveries.tracking_no','sales.id','sales.reference_no')->first();
-            $commonObj = new CommonClass();            
+        if ($rsSale->count() > 0) {
+            $row = $rsSale->select('deliveries.tracking_no', 'sales.id', 'sales.reference_no')->first();
+            $commonObj = new CommonClass();
             $resArray = $commonObj->getLeopardscodStatus($wo_id, $row->reference_no, 3, $row->tracking_no);
-            $status= 'success'; 
+            $status = 'success';
         }
         echo json_encode(array(
-            'status'=>$status,
-            'data'=>$resArray
+            'status' => $status,
+            'data' => $resArray
         ));
-
     }
+
+    public function importCouriersFee() {
+        $couriersData = DB::table('couriers')->where('is_active',1)->get();
+        return view('backend.sale.import-courier-sales', compact('couriersData'));        
+    }
+
+    public function importCSV(Request $request) {
+        try {
+
+            $file = $request->file('csv_file');
+            $freight_charges  = $request->freight_charges;
+            $fuel_factor  =$request->fuel_factor;
+            $gst  =$request->gst;
+            $insurance  =$request->insurance;
+            
+            $file_extension = $request->file('csv_file')->getClientOriginalExtension();
+            if ($file_extension != 'csv' && $file_extension != 'txt') {                
+                return back()->withErrors(['error' => 'invalid File Extension']);
+            }
+            /*echo '<pre>';
+            print_r($request->all());
+            xexit;
+            */
+            if ($file->isValid()) {
+                $fileName = time().'.'.$file_extension;
+                //$fileName = time() . '_' . $file->getClientOriginalName();
+                $filePath = config('app.upload_courier_file');
+                if (!file_exists($filePath)) {
+                    mkdir($filePath, 0777, true);
+                }
+                $file->move($filePath, $fileName);
+                $dataArray = array(                    
+                    'fuel_surcharge'=>$request->fuel_surcharge,
+                    'fuel_factor'=>$request->fuel_factor,
+                    'gst'=>$request->gst,
+                    'insurance'=>$request->insurance,
+                    'file_name'=>$fileName
+                );
+                //$ImportOrderFeeFiles = new ImportOrderFeeFiles();
+                $id = DB::table('import_order_fee_files')->insertGetId($dataArray);
+                
+                
+                 $objTasks = new Tasks();
+                 $objTasks->fill(array(
+                    'user_id' => 1,
+                    'task' => 'import:orderFee',
+                    'record_id' => $id,
+                    'type' => 'command',
+                    'value' => "import:orderFee ".$id,
+                    'attempts' => 0
+                 ));
+                 $objTasks->save();
+                
+                /*
+                $file_handle = fopen($filePath . '/' . $fileName, 'r');
+                $delimiter = ',';
+                $i = 0;
+                $recordUpdateCount = 0;
+                while (($data = fgetcsv($file_handle, 1000, $delimiter)) !== false) {
+                    if ($i > 1) {
+                        $order_id = $data[0];
+                        $shipping_fee = $data[1];
+                        if (is_numeric($shipping_fee)) {
+                            $result = Sale::where('woocommerce_order_id', $order_id);
+                            if ($result->count() > 0) {
+                                $kioretail_order_id = $result->value('id');
+                                $objSale = Sale::find($kioretail_order_id);
+                                $arrayData = array(
+                                    'courier_fee'=>$shipping_fee,
+                                    'is_locked'=>1,
+                                );
+                                $objSale->fill($arrayData);
+                                $objSale->save();
+                                $recordUpdateCount++;
+                            }
+                        }
+                    }
+
+                    $i++;
+                }
+                
+                
+                */
+                 return back()->with('success', 'Your Process has been started in the background.');
+                
+            }
+
+
+//            $csvData = file_get_contents($file);
+//            $rows = array_map('str_getcsv', explode("\n", $csvData));
+        } catch (Exception $e) {
+            Log::info("Error in importCSV:" . $e->getMessage());
+            //echo "Caught exception: " . $e->getMessage();
+        }
+    }
+
 }

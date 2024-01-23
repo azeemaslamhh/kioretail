@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use App\Models\Delivery;
 use App\Classes\CommonClass;
+use App\Models\Tasks;
 
 class CheckOrdersDelivery extends Command
 {
@@ -35,12 +36,13 @@ class CheckOrdersDelivery extends Command
     {
 
         try {
+            Log::info('check:orders start');
             //Log::info("start");
-            $days = 30;
+            $days = 300;
             $now = Carbon::now();
             $fromDate = $now->subDays($days)->format('Y-m-d H:i:s');
             $toDate = date('Y-m-d H:i:s');
-            $rs = Delivery::join('sales', 'deliveries.sale_id', 'sales.id')->join('couriers', 'deliveries.courier_id', 'couriers.id')->whereBetween('deliveries.created_at', [$fromDate, $toDate])->where('sales.paid_amount','!=',4);
+            $rs = Delivery::join('sales', 'deliveries.sale_id', 'sales.id')->join('couriers', 'deliveries.courier_id', 'couriers.id')->whereBetween('sales.created_at', [$fromDate, $toDate])->where('sales.paid_amount','!=',4);
             if ($rs->count() > 0) {
                 $rs->select('deliveries.sale_id','deliveries.tracking_no','deliveries.status', 'deliveries.courier_id', 'couriers.name as courier_name', 'sales.woocommerce_order_id','sales.reference_no')->orderBy('deliveries.created_at',"ASC");
                 $orders = $rs->get()->toArray();
@@ -50,7 +52,7 @@ class CheckOrdersDelivery extends Command
                         if ($order['courier_id'] == 1) { //Rede x
 
                         } else if ($order['courier_id'] == 2) { 
-                            $commonObj->getcallCourier($order['woocommerce_order_id'], $order['reference_no'], 5);
+                           // $commonObj->getcallCourier($order['woocommerce_order_id'], $order['reference_no'], 5);
                         } else if ($order['courier_id'] == 3) { //Leopards Courier
                             if($order['woocommerce_order_id']>0){
                                 $commonObj->getLeopardscodStatus($order['woocommerce_order_id'], $order['reference_no'], 3);
@@ -69,6 +71,11 @@ class CheckOrdersDelivery extends Command
                     }
                 }
                 //Log::info("start end ");
+            }
+            
+            $rsTasks = Tasks::where('task', 'check:orders');
+            if ($rsTasks->count() > 0) {
+                Tasks::where('task', 'check:orders')->delete();
             }
         } catch (\Exception $e) {
 

@@ -83,6 +83,7 @@
       'Keygen' => 'Keygen\\Keygen',
       'Debugbar' => 'Barryvdh\\Debugbar\\Facades\\Debugbar',
     ),
+    'upload_courier_file' => 'D:\\Wamp\\www\\kioretail_new/storage/couriers-fee-csv',
   ),
   'auth' => 
   array (

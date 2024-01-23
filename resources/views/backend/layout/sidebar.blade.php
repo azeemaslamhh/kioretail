@@ -67,8 +67,9 @@
                 $delivery_permission_active = $role_has_permissions_list->where('name', 'delivery')->first();
 
                 $sale_add_permission_active = $role_has_permissions_list->where('name', 'sales-add')->first();
+                $import_couriers_fee_active = $role_has_permissions_list->where('name', 'import_couriers_fee')->first();
             ?>
-            @if($sale_index_permission_active || $gift_card_permission_active || $coupon_permission_active || $delivery_permission_active)
+            @if($sale_index_permission_active || $gift_card_permission_active || $coupon_permission_active || $delivery_permission_active || $import_couriers_fee_active)
             <li><a href="#sale" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-cart"></i><span>{{trans('file.Sale')}}</span></a>
             <ul id="sale" class="collapse list-unstyled ">
                 @if($sale_add_permission_active)
@@ -87,6 +88,9 @@
                 <li id="courier-menu"><a href="{{route('couriers.index')}}">{{trans('file.Courier List')}}</a> </li>
                 @if($delivery_permission_active)
                 <li id="delivery-menu"><a href="{{route('delivery.index')}}">{{trans('file.Delivery List')}}</a></li>
+                @endif
+                @if($import_couriers_fee_active)
+                <li id="import_couriers-fee-menu"><a href="{{route('importCouriersFee')}}">Import Couriers Fee</a></li>
                 @endif
             </ul>
             </li>

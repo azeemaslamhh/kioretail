@@ -25,14 +25,14 @@
                                 <div class="col-md-8" data-name="RoEzuSwG">
                                     <select class="form-control m-select2" name="sync_products">
                                      <?php $trigger_cron = \App\Models\UserCronSetting::getCronTime("sync_products"); ?>
-                                        @foreach ($time_3 as $time_value => $time_name) {
+                                        @foreach ($time_2 as $time_value => $time_name) {
                                         <option value="{{$time_value}}" {{(isset($trigger_cron) && $trigger_cron == $time_value) ? 'selected' : ''}}>{{ $time_name }}</option>
                                         }
                                         @endforeach
                                     </select>
                                     <!-- <small><span class="help-block">{{trans('app.settings.cron.trigger_scheduling_note')}}</span></small> -->
                                 </div>
-                                <button type="button" class="btn btn-success btn-run" style="margin-right:10px"  onclick="runcron('sync:products');"><i class="fa fa-angle-right" ></i> {{trans('Ron Now')}}</button> 
+                                <button type="button" class="btn btn-success btn-run" style="margin-right:10px"  onclick="runcron('sync:products');"><i class="fa fa-angle-right" ></i> {{trans('Run Now')}}</button> 
                                 <!-- <button type="button" class="btn btn-warning btn-run" onclick="runcron('trigger:processing --force');"><i class="fa fa-angle-right"></i> Force Run </button>  -->
                             </div>
                             <div class="form-group row" data-name="jWDSQEXc">
@@ -40,14 +40,14 @@
                                 <div class="col-md-8" data-name="jEFadLqJ">
                                     <select class="form-control m-select2" name="sync_orders">
                                     <?php $bounce_process_cron = \App\Models\UserCronSetting::getCronTime("sync_orders"); ?>
-                                        @foreach ($time_3 as $time_value => $time_name) {
+                                        @foreach ($time_2 as $time_value => $time_name) {
                                         <option value="{{$time_value}}" {{(isset($bounce_process_cron) && $bounce_process_cron == $time_value) ? 'selected' : ''}}>{{ $time_name }}</option>
                                         }
                                         @endforeach
                                     </select>
                                     <!-- <small><span class="help-block">{{trans('app.settings.cron.bounce_processing_note')}}</span></small> -->
                                 </div>
-                                <button type="button" class="btn btn-success btn-run" style="margin-right:10px"  onclick="runcron('sync:orders');"><i class="fa fa-angle-right"></i> {{trans('Ron Now')}}</button>                                 
+                                <button type="button" class="btn btn-success btn-run" style="margin-right:10px"  onclick="runcron('sync:orders');"><i class="fa fa-angle-right"></i> {{trans('Run Now')}}</button>                                 
                             </div>
                             <div class="form-group row" data-name="jWDSQEXc">
                                 <label class="col-form-label col-md-12">Check Orders</label>
@@ -61,7 +61,7 @@
                                     </select>
                                     <!-- <small><span class="help-block">{{trans('app.settings.cron.bounce_processing_note')}}</span></small> -->
                                 </div>
-                                <button type="button" class="btn btn-success btn-run" style="margin-right:10px"  onclick="runcron('check:orders');"><i class="fa fa-angle-right"></i> {{trans('Ron Now')}}</button>                                 
+                                <button type="button" class="btn btn-success btn-run" style="margin-right:10px"  onclick="runcron('check:orders');"><i class="fa fa-angle-right"></i> {{trans('Run Now')}}</button>                                 
                             </div>
                             <div class="kt-portlet__foot" data-name="BeefdcDD">
                         <div class="" data-name="nXYQNpgi" style="padding-top: 16px;  font-size: 13px;">

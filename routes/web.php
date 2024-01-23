@@ -293,6 +293,8 @@ Route::group(['middleware' => ['common', 'auth', 'active']], function() {
         Route::get('sales/check-discount', 'checkDiscount');
         Route::post('sales/getLeopardsCourierPaymentStatus', 'getLeopardsCourierPaymentStatus')->name('getLeopardsCourierPaymentStatus');
         Route::post('sales/getLeopardDeliveryReport', 'getLeopardDeliveryReport')->name('getLeopardDeliveryReport');
+        Route::get('sales/import-couriers-fee', 'importCouriersFee')->name('importCouriersFee');
+        Route::post('sales/importCSV', 'importCSV')->name('importCSV');
     });
     Route::resource('sales', SaleController::class);
 

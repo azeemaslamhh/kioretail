@@ -24,7 +24,7 @@
                         <input type="hidden" name="ending_date" id="ending_date" value="{{$ending_date}}" />
                     </div>
                 </div>
-                <div class="col-md-3 @if(\Auth::user()->role_id > 2){{'d-none'}}@endif">
+                <div class="col-md-2 @if(\Auth::user()->role_id > 2){{'d-none'}}@endif">
                     <div class="form-group">
                         <label><strong>{{trans('file.Warehouse')}}</strong></label>
                         <select id="warehouse_id" name="warehouse_id" class="selectpicker form-control" data-live-search="true" data-live-search-style="begins" >
@@ -35,7 +35,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="form-group">
                         <label><strong>{{trans('file.Sale Status')}}</strong></label>
                         <select id="sale-status" class="form-control" name="sale_status">
@@ -45,7 +45,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="form-group">
                         <label><strong>{{trans('file.Payment Status')}}</strong></label>
                         <select id="payment-status" class="form-control" name="payment_status">
@@ -54,6 +54,19 @@
                             <option value="2">{{trans('file.Due')}}</option>
                             <option value="3">{{trans('file.Partial')}}</option>
                             <option value="4">{{trans('file.Paid')}}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label><strong>Delivery Status</strong></label>
+                        <select id="delivery-status" class="form-control" name="delivery-status">
+                            <option value="">{{trans('file.All')}}</option>
+                            <option value="1">{{trans('file.Packing')}}</option>
+                            <option value="2">{{trans('file.Delivering')}}</option>
+                            <option value="3">{{trans('file.Delivered')}}</option>
+                            <option value="5">Canceled</option>
+                            <option value="4">Processing</option>
                         </select>
                     </div>
                 </div>
@@ -76,6 +89,7 @@
                 <tr>
                     <th class="not-exported"></th>
                     <th>{{trans('file.Date')}}</th>
+                    <th>Booked date</th>
                     <th>{{trans('file.reference')}}</th>
                     <th>{{trans('file.courier')}}</th>
                     <th>{{trans('file.phone')}}</th>
@@ -851,7 +865,7 @@
     }
     
    var table = $('#salesData').DataTable({
-            "aoColumnDefs": [{"bSortable": false, "aTargets": [9,10,11,12]}],
+            "aoColumnDefs": [{"bSortable": false, "aTargets": [10,11,12,13]}],
             "bProcessing": true,
             "bServerSide": true,
             "aaSorting": [[1, "desc"]],
@@ -868,6 +882,7 @@
                 aoData.push({"name": "warehouse_id", "value":$("#warehouse_id").val()});
                 aoData.push({"name": "sale_status", "value": $("#sale-status").val()});
                 aoData.push({"name": "payment_status", "value": $("#payment-status").val()});
+                aoData.push({"name": "delivery_status", "value": $("#delivery-status").val()});
             }
         });
         objTable = table;
